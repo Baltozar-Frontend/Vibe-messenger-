@@ -3,389 +3,494 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VIBE PROJECT: OVERDRIVE</title>
-    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <title>VIBE // SYSTEM TERMINAL</title>
+    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
     <style>
         :root {
-            --bg: #050505;
-            --panel: #111113;
-            --accent: #00ff66;
-            --secondary: #0088ff;
-            --text: #e0e0e0;
-            --danger: #ff3333;
+            --bg: #09090b;
+            --panel: #121214;
+            --accent: #ff0055; /* Агрессивный неоновый красный/розовый */
+            --text: #ededed;
+            --muted: #888;
+            --border: #27272a;
         }
 
-        * { box-sizing: border-box; }
-        body, html {
-            margin: 0; padding: 0; height: 100%;
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
             background-color: var(--bg);
             color: var(--text);
-            font-family: 'Consolas', 'Monaco', monospace;
+            font-family: 'Courier New', Courier, monospace;
+            height: 100vh;
+            display: flex;
             overflow: hidden;
         }
 
-        /* --- Layout --- */
-        .app-wrapper {
+        /* --- СЕТКА ИНТЕРФЕЙСА --- */
+        .layout {
             display: grid;
-            grid-template-columns: 300px 1fr 250px;
-            height: 100vh;
-            border: 1px solid #222;
+            grid-template-columns: 280px 1fr 280px;
+            width: 100%;
+            height: 100%;
         }
 
-        /* --- Sidebar: User Info --- */
-        .sidebar {
+        .panel {
             background: var(--panel);
-            border-right: 1px solid #222;
+            border-right: 1px solid var(--border);
             display: flex;
             flex-direction: column;
+        }
+
+        .panel:last-child { border-right: none; border-left: 1px solid var(--border); }
+
+        /* --- ЗАГОЛОВКИ --- */
+        .header {
             padding: 15px;
-            overflow-y: auto;
-        }
-
-        .user-card {
             background: #000;
-            padding: 15px;
-            border-radius: 8px;
-            border: 1px solid var(--accent);
-            margin-bottom: 20px;
-            box-shadow: 0 0 10px rgba(0, 255, 102, 0.1);
+            border-bottom: 1px solid var(--border);
+            font-weight: bold;
+            font-size: 14px;
+            letter-spacing: 2px;
+            color: var(--accent);
+            text-align: center;
         }
 
-        .user-card h3 { margin: 0 0 10px 0; font-size: 14px; color: var(--accent); text-transform: uppercase; }
-        .info-item { font-size: 11px; margin-bottom: 5px; color: #888; border-bottom: 1px solid #222; padding-bottom: 3px; }
-        .info-item span { color: #fff; float: right; }
-
-        /* --- Main Chat Area --- */
-        .main-chat {
-            display: flex;
-            flex-direction: column;
-            background: #080808;
-        }
-
-        header {
-            padding: 15px 25px;
-            background: #000;
-            border-bottom: 1px solid #333;
+        /* --- ЛЕВАЯ ПАНЕЛЬ (ПРОФИЛЬ) --- */
+        .profile-section { padding: 20px; }
+        .data-row {
+            margin-bottom: 10px;
+            font-size: 12px;
             display: flex;
             justify-content: space-between;
-            align-items: center;
+            border-bottom: 1px dashed #333;
+            padding-bottom: 5px;
+        }
+        .data-row span:last-child { color: var(--accent); }
+        .nick-input {
+            width: 100%;
+            background: #000;
+            border: 1px solid var(--accent);
+            color: white;
+            padding: 8px;
+            font-family: inherit;
+            margin-bottom: 15px;
+            text-align: center;
         }
 
-        #chat-messages {
+        /* --- ЦЕНТРАЛЬНАЯ ПАНЕЛЬ (ЧАТ) --- */
+        .chat-area {
+            display: flex;
+            flex-direction: column;
+            background: #050505;
+        }
+        
+        .messages {
             flex: 1;
             overflow-y: auto;
             padding: 20px;
             display: flex;
             flex-direction: column;
             gap: 15px;
+            scroll-behavior: smooth;
         }
 
-        .message {
-            max-width: 80%;
-            padding: 12px 16px;
+        .msg {
+            max-width: 85%;
+            padding: 10px 15px;
+            background: #18181b;
+            border: 1px solid var(--border);
             border-radius: 4px;
             position: relative;
-            animation: slideIn 0.2s ease;
         }
+        .msg.mine { align-self: flex-end; border-color: var(--accent); background: #1a050d; }
+        .msg.other { align-self: flex-start; }
 
-        @keyframes slideIn { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } }
-
-        .message.mine { align-self: flex-end; background: var(--secondary); color: white; border-left: 4px solid #fff; }
-        .message.other { align-self: flex-start; background: #1a1a1c; border-left: 4px solid var(--accent); }
-        .message .meta { font-size: 10px; opacity: 0.5; margin-bottom: 5px; display: block; }
-        .message img { max-width: 100%; border-radius: 4px; margin-top: 10px; border: 1px solid rgba(255,255,255,0.1); }
-
-        .chat-input-area {
-            padding: 20px;
-            background: #000;
-            border-top: 1px solid #333;
+        .msg-meta {
+            font-size: 10px;
+            color: var(--muted);
+            margin-bottom: 8px;
             display: flex;
             gap: 10px;
-            align-items: center;
+            flex-wrap: wrap;
         }
+        .msg-meta .author { color: var(--text); font-weight: bold; }
+        .msg-meta .ip { color: #00ffcc; }
 
-        input[type="text"] {
+        .msg-content { font-size: 14px; line-height: 1.5; word-wrap: break-word; }
+        .msg-content img { max-width: 100%; border-radius: 4px; margin-top: 10px; }
+
+        .input-area {
+            padding: 15px;
+            background: var(--panel);
+            border-top: 1px solid var(--border);
+            display: flex;
+            gap: 10px;
+        }
+        
+        .chat-input {
             flex: 1;
-            background: #111;
-            border: 1px solid #444;
+            background: #000;
+            border: 1px solid var(--border);
             color: white;
             padding: 12px;
-            border-radius: 4px;
+            font-family: inherit;
             outline: none;
         }
+        .chat-input:focus { border-color: var(--accent); }
 
-        input[type="text"]:focus { border-color: var(--accent); }
-
-        .action-btn {
-            background: none; border: none; color: #888; cursor: pointer; font-size: 18px; transition: 0.2s;
-        }
-        .action-btn:hover { color: var(--accent); }
-        .send-btn { background: var(--accent); color: black; padding: 10px 20px; border-radius: 4px; font-weight: bold; }
-
-        /* --- Right Sidebar: Online List --- */
-        .online-list {
-            background: var(--panel);
-            border-left: 1px solid #222;
-            padding: 15px;
-        }
-
-        .online-item {
-            font-size: 12px;
-            padding: 8px;
-            background: #000;
-            margin-bottom: 5px;
-            border-radius: 4px;
+        .btn {
+            background: var(--accent);
+            color: #000;
+            border: none;
+            padding: 0 20px;
+            font-weight: bold;
             cursor: pointer;
-            border: 1px solid #222;
+            transition: 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
-        .online-item:hover { border-color: var(--secondary); }
-        .online-item.active { border-color: var(--accent); }
+        .btn:hover { background: white; }
+        .btn-icon { background: #27272a; color: white; padding: 0 15px; }
+        .btn-icon:hover { background: var(--muted); }
 
-        /* --- Utilities --- */
-        #file-input { display: none; }
-        .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 5px; }
-        .online { background: var(--accent); }
-        .offline { background: var(--danger); }
+        /* --- ПРАВАЯ ПАНЕЛЬ (РАДАР) --- */
+        .radar-list { padding: 15px; overflow-y: auto; flex: 1; }
+        .radar-item {
+            background: #000;
+            border: 1px solid #333;
+            padding: 10px;
+            margin-bottom: 10px;
+            font-size: 11px;
+            border-left: 3px solid #00ffcc;
+        }
+        .radar-item.is-me { border-left-color: var(--accent); }
 
-        ::-webkit-scrollbar { width: 5px; }
-        ::-webkit-scrollbar-thumb { background: #333; }
+        /* Логи системы */
+        .system-logs {
+            height: 150px;
+            background: #000;
+            border-top: 1px solid var(--border);
+            padding: 10px;
+            font-size: 10px;
+            color: var(--muted);
+            overflow-y: auto;
+        }
+        .log-entry { margin-bottom: 4px; }
+        .log-entry.success { color: #00ffcc; }
+        .log-entry.error { color: var(--accent); }
+
+        input[type="file"] { display: none; }
 
         @media (max-width: 900px) {
-            .sidebar, .online-list { display: none; }
-            .app-wrapper { grid-template-columns: 1fr; }
+            .layout { grid-template-columns: 1fr; }
+            .panel:first-child, .panel:last-child { display: none; }
         }
     </style>
 </head>
 <body>
 
-<div class="app-wrapper">
-    <aside class="sidebar">
-        <div class="user-card">
-            <h3>Твой профиль</h3>
-            <div id="my-info">
-                <div class="info-item">ID: <span id="my-peer-id">---</span></div>
-                <div class="info-item">IP: <span id="my-ip">Определяем...</span></div>
-                <div class="info-item">Браузер: <span id="my-browser">...</span></div>
-                <div class="info-item">OS: <span id="my-os">...</span></div>
-            </div>
-        </div>
-        
-        <div style="font-size: 10px; color: #444; margin-top: auto;">
-            <p>> VIBE CORE v2.5.0</p>
-            <p>> P2P ENCRYPTION: ACTIVE</p>
-            <p>> DECENTRALIZED NETWORK</p>
+<div class="layout">
+    <aside class="panel">
+        <div class="header">SYSTEM.PROFILE</div>
+        <div class="profile-section">
+            <input type="text" id="my-nick" class="nick-input" placeholder="Введите никнейм">
+            
+            <div class="data-row"><span>СТАТУС:</span> <span id="status-ind">OFFLINE</span></div>
+            <div class="data-row"><span>IP АДРЕС:</span> <span id="my-ip">...</span></div>
+            <div class="data-row"><span>ОС:</span> <span id="my-os">...</span></div>
+            <div class="data-row"><span>БРАУЗЕР:</span> <span id="my-browser">...</span></div>
+            <div class="data-row"><span>ID СЕССИИ:</span> <span id="my-id">...</span></div>
         </div>
     </aside>
 
-    <main class="main-chat">
-        <header>
-            <div><i class="fa-solid fa-terminal" style="color: var(--accent);"></i> GLOBAL_HUB</div>
-            <div id="connection-status"><span class="status-dot offline"></span> DISCONNECTED</div>
-        </header>
-
-        <div id="chat-messages">
-            </div>
-
-        <div class="chat-input-area">
-            <label class="action-btn">
-                <i class="fa-solid fa-paperclip"></i>
+    <main class="chat-area">
+        <div class="header">GLOBAL_BROADCAST_CHANNEL</div>
+        <div class="messages" id="messages"></div>
+        <div class="input-area">
+            <label class="btn btn-icon">
+                [IMG]
                 <input type="file" id="file-input" accept="image/*">
             </label>
-            <input type="text" id="msg-input" placeholder="Введите директиву..." autocomplete="off">
-            <button class="action-btn send-btn" id="send-btn">SEND</button>
+            <input type="text" id="msg-input" class="chat-input" placeholder="Ввод команды..." autocomplete="off">
+            <button class="btn" id="send-btn">SEND</button>
         </div>
     </main>
 
-    <aside class="online-list">
-        <h3 style="font-size: 12px; margin-bottom: 15px; color: #555;">NODES IN RANGE</h3>
-        <div id="peers-container">
+    <aside class="panel">
+        <div class="header">NETWORK.RADAR</div>
+        <div class="radar-list" id="radar">
             </div>
+        <div class="system-logs" id="logs">
+            <div class="log-entry">> Инициализация ядра...</div>
+        </div>
     </aside>
 </div>
 
 <script>
     /**
-     * VIBE CORE ENGINE
-     * Децентрализованный чат на PeerJS
+     * VIBE GLOBAL ENGINE - MQTT EDITION
+     * Никаких P2P разрывов. Жесткая привязка к публичному брокеру.
      */
 
-    const config = {
-        iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+    // --- 1. КОНФИГУРАЦИЯ И ДАННЫЕ СЕССИИ ---
+    const BROKER_URL = 'wss://broker.emqx.io:8084/mqtt'; // Публичный защищенный брокер
+    const TOPIC_CHAT = 'vibe_global_project_chat_override';
+    const TOPIC_RADAR = 'vibe_global_project_radar';
+    
+    const mySessionId = Math.random().toString(36).substring(2, 10);
+    const activePeers = new Map(); // Хранилище тех, кто онлайн
+
+    const userData = {
+        id: mySessionId,
+        nick: localStorage.getItem('vibe_nick') || "Ghost_" + Math.floor(Math.random() * 999),
+        ip: "Определение...",
+        os: navigator.platform || "Unknown",
+        browser: getBrowserName(),
+        lastSeen: Date.now()
     };
 
-    let peer;
-    let connections = {};
-    let myData = {
-        nick: "User_" + Math.floor(Math.random() * 1000),
-        ip: "0.0.0.0",
-        browser: navigator.userAgent.split(' ')[0],
-        os: navigator.platform
+    // UI Элементы
+    const ui = {
+        nick: document.getElementById('my-nick'),
+        ip: document.getElementById('my-ip'),
+        os: document.getElementById('my-os'),
+        browser: document.getElementById('my-browser'),
+        id: document.getElementById('my-id'),
+        status: document.getElementById('status-ind'),
+        messages: document.getElementById('messages'),
+        input: document.getElementById('msg-input'),
+        radar: document.getElementById('radar'),
+        logs: document.getElementById('logs')
     };
 
-    // 1. Инициализация профиля и получение IP
-    async function initUser() {
+    // --- 2. ИНИЦИАЛИЗАЦИЯ И СБОР ДАННЫХ ---
+    async function initSystem() {
+        ui.nick.value = userData.nick;
+        ui.os.innerText = userData.os;
+        ui.browser.innerText = userData.browser;
+        ui.id.innerText = userData.id;
+
+        ui.nick.addEventListener('change', (e) => {
+            userData.nick = e.target.value;
+            localStorage.setItem('vibe_nick', userData.nick);
+            log(`Никнейм изменен на ${userData.nick}`);
+            sendRadarPing(); // Сразу обновляем себя у других
+        });
+
         try {
-            const res = await fetch('https://api.ipify.org?format=json');
-            const data = await res.json();
-            myData.ip = data.ip;
-            document.getElementById('my-ip').innerText = data.ip;
-        } catch(e) { 
-            document.getElementById('my-ip').innerText = "Hidden/VPN";
+            const response = await fetch('https://api.ipify.org?format=json');
+            const data = await response.json();
+            userData.ip = data.ip;
+            ui.ip.innerText = userData.ip;
+            log(`IP адрес установлен: ${userData.ip}`, 'success');
+        } catch (e) {
+            userData.ip = "Hidden/Error";
+            ui.ip.innerText = userData.ip;
+            log("Не удалось получить IP", 'error');
         }
-        document.getElementById('my-browser').innerText = myData.browser;
-        document.getElementById('my-os').innerText = myData.os;
-        
-        startPeer();
+
+        connectToSwarm();
     }
 
-    // 2. Запуск P2P
-    function startPeer() {
-        // Мы используем публичный ID, который можно передать другу для связи
-        // В реальном проекте здесь можно использовать фиксированные ID
-        peer = new Peer(myData.nick + "_" + Math.floor(Math.random()*999), {
-            debug: 2,
-            config: config
+    // Вспомогательная функция определения браузера
+    function getBrowserName() {
+        const ua = navigator.userAgent;
+        if (ua.includes("Firefox")) return "Firefox";
+        if (ua.includes("Edg")) return "Edge";
+        if (ua.includes("Chrome")) return "Chrome";
+        if (ua.includes("Safari")) return "Safari";
+        return "Unknown";
+    }
+
+    // --- 3. ПОДКЛЮЧЕНИЕ К БРОКЕРУ ---
+    let client;
+    function connectToSwarm() {
+        log(`Подключение к ${BROKER_URL}...`);
+        
+        // Подключаемся
+        client = mqtt.connect(BROKER_URL, {
+            clientId: 'vibe_client_' + mySessionId,
+            clean: true
         });
 
-        peer.on('open', (id) => {
-            document.getElementById('my-peer-id').innerText = id;
-            document.getElementById('connection-status').innerHTML = '<span class="status-dot online"></span> ONLINE';
-            addSystemMessage("Узел инициализирован: " + id);
+        client.on('connect', () => {
+            log("СОЕДИНЕНИЕ УСТАНОВЛЕНО", 'success');
+            ui.status.innerText = "ONLINE";
+            ui.status.style.color = "#00ffcc";
             
-            // Если ты открыл 2 вкладки, тебе нужно "соединиться" с другой.
-            // В P2P чатах обычно используют сигнальный сервер для поиска всех, 
-            // но так как мы без регистрации, мы имитируем "подключение по ID"
-            console.log("Твой ID для других: ", id);
+            // Подписываемся на каналы
+            client.subscribe([TOPIC_CHAT, TOPIC_RADAR], (err) => {
+                if (!err) log("Каналы синхронизированы", 'success');
+            });
+
+            // Запускаем радар (пингуем каждые 3 секунды, чтобы показать, что мы онлайн)
+            sendRadarPing();
+            setInterval(sendRadarPing, 3000);
+            
+            // Запускаем очистку мертвых душ (кто не пинговал 10 секунд)
+            setInterval(cleanRadar, 5000);
         });
 
-        // Слушаем входящие подключения
-        peer.on('connection', (conn) => {
-            setupConnection(conn);
-        });
-
-        peer.on('error', (err) => {
-            console.error(err);
-            addSystemMessage("Ошибка сети: " + err.type);
-        });
-    }
-
-    function setupConnection(conn) {
-        connections[conn.peer] = conn;
-        
-        conn.on('open', () => {
-            addSystemMessage("Установлена связь с: " + conn.peer);
-            updateOnlineList();
-            // Отправляем свои данные новому другу
-            conn.send({ type: 'HANDSHAKE', user: myData });
-        });
-
-        conn.on('data', (data) => {
-            handleIncomingData(data, conn.peer);
-        });
-
-        conn.on('close', () => {
-            addSystemMessage("Связь разорвана: " + conn.peer);
-            delete connections[conn.peer];
-            updateOnlineList();
-        });
-    }
-
-    // 3. Обработка данных
-    function handleIncomingData(data, senderPeer) {
-        if (data.type === 'CHAT') {
-            appendMessage(data.user.nick, data.text, 'other', data.user);
-        } else if (data.type === 'IMAGE') {
-            appendMessage(data.user.nick, data.image, 'other', data.user, true);
-        } else if (data.type === 'HANDSHAKE') {
-            // Получили IP и инфо другого пользователя
-            updatePeerInfo(senderPeer, data.user);
-        }
-    }
-
-    // 4. Интерфейс
-    function appendMessage(sender, content, side, info = {}, isImg = false) {
-        const chatWindow = document.getElementById('chat-messages');
-        const div = document.createElement('div');
-        div.className = `message ${side}`;
-        
-        let meta = `<span class="meta">${sender} [IP: ${info.ip || '??'}] [OS: ${info.os || '??'}]</span>`;
-        let body = isImg ? `<img src="${content}">` : `<div>${content}</div>`;
-        
-        div.innerHTML = meta + body;
-        chatWindow.appendChild(div);
-        chatWindow.scrollTop = chatWindow.scrollHeight;
-    }
-
-    function addSystemMessage(text) {
-        const chatWindow = document.getElementById('chat-messages');
-        const div = document.createElement('div');
-        div.style.cssText = "text-align: center; font-size: 10px; color: #444; margin: 10px 0;";
-        div.innerText = ">> " + text;
-        chatWindow.appendChild(div);
-    }
-
-    function updateOnlineList() {
-        const container = document.getElementById('peers-container');
-        container.innerHTML = '';
-        Object.keys(connections).forEach(id => {
-            const div = document.createElement('div');
-            div.className = 'online-item';
-            div.innerText = id;
-            container.appendChild(div);
-        });
-    }
-
-    function updatePeerInfo(id, info) {
-        // Можно выводить в лог или обновлять список
-        console.log(`Данные узла ${id}:`, info);
-    }
-
-    // 5. Отправка
-    function broadcast(payload) {
-        Object.values(connections).forEach(conn => {
-            if (conn.open) conn.send(payload);
-        });
-        // Добавляем себе
-        if (payload.type === 'CHAT') appendMessage('YOU', payload.text, 'mine', myData);
-        if (payload.type === 'IMAGE') appendMessage('YOU', payload.image, 'mine', myData, true);
-    }
-
-    document.getElementById('send-btn').onclick = () => {
-        const input = document.getElementById('msg-input');
-        if (input.value.trim()) {
-            // Если мы ни к кому не подключены, но хотим потестить - пробуем подключиться к себе (или по ID)
-            if (Object.keys(connections).length === 0) {
-                const target = prompt("С кем связаться? Введите ID другого окна/вкладки:");
-                if (target) {
-                    const conn = peer.connect(target);
-                    setupConnection(conn);
-                    setTimeout(() => broadcast({ type: 'CHAT', text: input.value, user: myData }), 1000);
-                }
-            } else {
-                broadcast({ type: 'CHAT', text: input.value, user: myData });
+        client.on('message', (topic, message) => {
+            try {
+                const data = JSON.parse(message.toString());
+                if (topic === TOPIC_CHAT) handleIncomingMessage(data);
+                if (topic === TOPIC_RADAR) handleRadarPing(data);
+            } catch (e) {
+                console.error("Ошибка парсинга:", e);
             }
-            input.value = '';
+        });
+
+        client.on('error', (err) => {
+            log(`Ошибка брокера: ${err.message}`, 'error');
+            ui.status.innerText = "ERROR";
+            ui.status.style.color = "var(--accent)";
+        });
+    }
+
+    // --- 4. РАДАР (КТО ОНЛАЙН) ---
+    function sendRadarPing() {
+        if (!client || !client.connected) return;
+        const payload = JSON.stringify(userData);
+        client.publish(TOPIC_RADAR, payload, { qos: 0 }); // qos 0 - летит быстро, без гарантии
+    }
+
+    function handleRadarPing(peerData) {
+        peerData.lastSeen = Date.now();
+        activePeers.set(peerData.id, peerData);
+        renderRadar();
+    }
+
+    function cleanRadar() {
+        const now = Date.now();
+        let changed = false;
+        activePeers.forEach((peer, id) => {
+            if (now - peer.lastSeen > 10000) { // Если молчит больше 10 сек
+                activePeers.delete(id);
+                changed = true;
+            }
+        });
+        if (changed) renderRadar();
+    }
+
+    function renderRadar() {
+        ui.radar.innerHTML = '';
+        activePeers.forEach(peer => {
+            const isMe = peer.id === mySessionId;
+            const div = document.createElement('div');
+            div.className = `radar-item ${isMe ? 'is-me' : ''}`;
+            div.innerHTML = `
+                <div style="color: ${isMe ? 'var(--accent)' : '#fff'}; font-weight: bold;">${peer.nick} ${isMe ? '(YOU)' : ''}</div>
+                <div>IP: ${peer.ip}</div>
+                <div style="color: var(--muted);">[${peer.os}] ${peer.browser}</div>
+            `;
+            ui.radar.appendChild(div);
+        });
+    }
+
+    // --- 5. ЧАТ И ОТПРАВКА ---
+    function broadcast(content, type = 'text') {
+        if (!client || !client.connected) {
+            log("Нет сети для отправки", 'error');
+            return;
+        }
+
+        const msgData = {
+            id: Math.random().toString(36).substr(2, 9),
+            user: userData,
+            type: type,
+            content: content,
+            time: new Date().toLocaleTimeString()
+        };
+
+        // Отправляем в общую сеть
+        client.publish(TOPIC_CHAT, JSON.stringify(msgData), { qos: 1 }); // qos 1 - гарантированная доставка
+        log(`Пакет отправлен [${type}]`);
+    }
+
+    function handleIncomingMessage(data) {
+        const isMine = data.user.id === mySessionId;
+        const div = document.createElement('div');
+        div.className = `msg ${isMine ? 'mine' : 'other'}`;
+        
+        let contentHtml = data.type === 'text' 
+            ? `<div>${escapeHtml(data.content)}</div>` 
+            : `<img src="${data.content}" alt="Image">`;
+
+        div.innerHTML = `
+            <div class="msg-meta">
+                <span class="author">${escapeHtml(data.user.nick)}</span>
+                <span class="ip">${data.user.ip}</span>
+                <span>${data.time}</span>
+            </div>
+            <div class="msg-content">${contentHtml}</div>
+        `;
+
+        ui.messages.appendChild(div);
+        ui.messages.scrollTop = ui.messages.scrollHeight;
+    }
+
+    // --- 6. ОБРАБОТЧИКИ СОБЫТИЙ ---
+    document.getElementById('send-btn').onclick = () => {
+        const text = ui.input.value.trim();
+        if (text) {
+            broadcast(text, 'text');
+            ui.input.value = '';
         }
     };
 
+    ui.input.onkeypress = (e) => {
+        if (e.key === 'Enter') document.getElementById('send-btn').click();
+    };
+
+    // Работа с фото: Сжимаем перед отправкой, иначе брокер отбросит большой файл
     document.getElementById('file-input').onchange = (e) => {
         const file = e.target.files[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onload = (evt) => {
-                broadcast({ type: 'IMAGE', image: evt.target.result, user: myData });
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+            const img = new Image();
+            img.src = evt.target.result;
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                const MAX_WIDTH = 500;
+                let width = img.width;
+                let height = img.height;
+
+                if (width > MAX_WIDTH) {
+                    height *= MAX_WIDTH / width;
+                    width = MAX_WIDTH;
+                }
+
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, width, height);
+                
+                // Качество 0.6 достаточно для чата
+                broadcast(canvas.toDataURL('image/jpeg', 0.6), 'image'); 
             };
-            reader.readAsDataURL(file);
-        }
+        };
+        reader.readAsDataURL(file);
     };
 
-    // Слушаем Enter
-    document.getElementById('msg-input').onkeyup = (e) => { if(e.key === 'Enter') document.getElementById('send-btn').click(); };
+    // --- 7. УТИЛИТЫ ---
+    function log(msg, type = 'normal') {
+        const div = document.createElement('div');
+        div.className = `log-entry ${type}`;
+        div.innerText = `> ${msg}`;
+        ui.logs.appendChild(div);
+        ui.logs.scrollTop = ui.logs.scrollHeight;
+    }
 
-    // Запуск
-    initUser();
+    function escapeHtml(unsafe) {
+        return unsafe.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    }
 
+    // СТАРТ
+    initSystem();
 </script>
 </body>
 </html>
