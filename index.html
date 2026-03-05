@@ -3,160 +3,389 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VIBE // NO REG</title>
-    <script src="https://cdn.jsdelivr.net/npm/gun/gun.js"></script>
+    <title>VIBE PROJECT: OVERDRIVE</title>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         :root {
-            --bg: #0b0b0d;
-            --accent: #00ff95; /* Неоновый зеленый */
-            --panel: #16161a;
-            --text: #ffffff;
+            --bg: #050505;
+            --panel: #111113;
+            --accent: #00ff66;
+            --secondary: #0088ff;
+            --text: #e0e0e0;
+            --danger: #ff3333;
         }
 
-        body {
-            margin: 0; background: var(--bg); color: var(--text);
-            font-family: 'Segoe UI', Roboto, sans-serif;
-            display: flex; justify-content: center; height: 100vh;
+        * { box-sizing: border-box; }
+        body, html {
+            margin: 0; padding: 0; height: 100%;
+            background-color: var(--bg);
+            color: var(--text);
+            font-family: 'Consolas', 'Monaco', monospace;
+            overflow: hidden;
         }
 
-        .container {
-            width: 100%; max-width: 500px; display: flex; flex-direction: column;
-            border-left: 1px solid #222; border-right: 1px solid #222; background: var(--panel);
+        /* --- Layout --- */
+        .app-wrapper {
+            display: grid;
+            grid-template-columns: 300px 1fr 250px;
+            height: 100vh;
+            border: 1px solid #222;
+        }
+
+        /* --- Sidebar: User Info --- */
+        .sidebar {
+            background: var(--panel);
+            border-right: 1px solid #222;
+            display: flex;
+            flex-direction: column;
+            padding: 15px;
+            overflow-y: auto;
+        }
+
+        .user-card {
+            background: #000;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid var(--accent);
+            margin-bottom: 20px;
+            box-shadow: 0 0 10px rgba(0, 255, 102, 0.1);
+        }
+
+        .user-card h3 { margin: 0 0 10px 0; font-size: 14px; color: var(--accent); text-transform: uppercase; }
+        .info-item { font-size: 11px; margin-bottom: 5px; color: #888; border-bottom: 1px solid #222; padding-bottom: 3px; }
+        .info-item span { color: #fff; float: right; }
+
+        /* --- Main Chat Area --- */
+        .main-chat {
+            display: flex;
+            flex-direction: column;
+            background: #080808;
         }
 
         header {
-            padding: 20px; background: #000; border-bottom: 1px solid var(--accent);
-            display: flex; justify-content: space-between; align-items: center;
+            padding: 15px 25px;
+            background: #000;
+            border-bottom: 1px solid #333;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
 
-        #nick-display { color: var(--accent); font-weight: bold; cursor: pointer; border-bottom: 1px dashed; }
-
-        #chat-window {
-            flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 10px;
+        #chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
         }
 
-        .msg {
-            max-width: 80%; padding: 10px 15px; border-radius: 15px;
-            font-size: 0.95rem; line-height: 1.4; animation: pop 0.2s ease-out;
+        .message {
+            max-width: 80%;
+            padding: 12px 16px;
+            border-radius: 4px;
+            position: relative;
+            animation: slideIn 0.2s ease;
         }
 
-        @keyframes pop { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        @keyframes slideIn { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } }
 
-        .msg.mine { align-self: flex-end; background: var(--accent); color: #000; border-bottom-right-radius: 2px; }
-        .msg.other { align-self: flex-start; background: #2a2a2e; border-bottom-left-radius: 2px; }
+        .message.mine { align-self: flex-end; background: var(--secondary); color: white; border-left: 4px solid #fff; }
+        .message.other { align-self: flex-start; background: #1a1a1c; border-left: 4px solid var(--accent); }
+        .message .meta { font-size: 10px; opacity: 0.5; margin-bottom: 5px; display: block; }
+        .message img { max-width: 100%; border-radius: 4px; margin-top: 10px; border: 1px solid rgba(255,255,255,0.1); }
 
-        .msg img { max-width: 100%; border-radius: 10px; margin-top: 8px; display: block; }
-        .sender-name { font-size: 0.7rem; opacity: 0.6; margin-bottom: 4px; display: block; }
-
-        footer { padding: 15px; background: #000; display: flex; gap: 10px; align-items: center; }
+        .chat-input-area {
+            padding: 20px;
+            background: #000;
+            border-top: 1px solid #333;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
 
         input[type="text"] {
-            flex: 1; background: #1a1a1a; border: 1px solid #333; padding: 12px 18px;
-            color: white; border-radius: 25px; outline: none; transition: 0.3s;
+            flex: 1;
+            background: #111;
+            border: 1px solid #444;
+            color: white;
+            padding: 12px;
+            border-radius: 4px;
+            outline: none;
         }
 
         input[type="text"]:focus { border-color: var(--accent); }
 
-        .btn { background: none; border: none; cursor: pointer; color: var(--accent); font-size: 1.5rem; transition: 0.2s; }
-        .btn:hover { transform: scale(1.1); }
-        #file-input { display: none; }
+        .action-btn {
+            background: none; border: none; color: #888; cursor: pointer; font-size: 18px; transition: 0.2s;
+        }
+        .action-btn:hover { color: var(--accent); }
+        .send-btn { background: var(--accent); color: black; padding: 10px 20px; border-radius: 4px; font-weight: bold; }
 
-        .send-btn { background: var(--accent); color: #000; width: 42px; height: 42px; border-radius: 50%; font-size: 1rem; font-weight: bold; }
+        /* --- Right Sidebar: Online List --- */
+        .online-list {
+            background: var(--panel);
+            border-left: 1px solid #222;
+            padding: 15px;
+        }
+
+        .online-item {
+            font-size: 12px;
+            padding: 8px;
+            background: #000;
+            margin-bottom: 5px;
+            border-radius: 4px;
+            cursor: pointer;
+            border: 1px solid #222;
+        }
+        .online-item:hover { border-color: var(--secondary); }
+        .online-item.active { border-color: var(--accent); }
+
+        /* --- Utilities --- */
+        #file-input { display: none; }
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 5px; }
+        .online { background: var(--accent); }
+        .offline { background: var(--danger); }
+
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-thumb { background: #333; }
+
+        @media (max-width: 900px) {
+            .sidebar, .online-list { display: none; }
+            .app-wrapper { grid-template-columns: 1fr; }
+        }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <header>
-        <div style="letter-spacing: 2px; font-weight: 900;">VIBE <span style="font-weight: 300; font-size: 0.8rem;">P2P</span></div>
-        <div id="nick-display" onclick="changeNick()">Загрузка...</div>
-    </header>
+<div class="app-wrapper">
+    <aside class="sidebar">
+        <div class="user-card">
+            <h3>Твой профиль</h3>
+            <div id="my-info">
+                <div class="info-item">ID: <span id="my-peer-id">---</span></div>
+                <div class="info-item">IP: <span id="my-ip">Определяем...</span></div>
+                <div class="info-item">Браузер: <span id="my-browser">...</span></div>
+                <div class="info-item">OS: <span id="my-os">...</span></div>
+            </div>
+        </div>
+        
+        <div style="font-size: 10px; color: #444; margin-top: auto;">
+            <p>> VIBE CORE v2.5.0</p>
+            <p>> P2P ENCRYPTION: ACTIVE</p>
+            <p>> DECENTRALIZED NETWORK</p>
+        </div>
+    </aside>
 
-    <div id="chat-window"></div>
+    <main class="main-chat">
+        <header>
+            <div><i class="fa-solid fa-terminal" style="color: var(--accent);"></i> GLOBAL_HUB</div>
+            <div id="connection-status"><span class="status-dot offline"></span> DISCONNECTED</div>
+        </header>
 
-    <footer>
-        <label class="btn">
-            + <input type="file" id="file-input" accept="image/*">
-        </label>
-        <input type="text" id="msg-input" placeholder="Напиши что-нибудь..." autocomplete="off">
-        <button class="btn send-btn" id="send-btn">></button>
-    </footer>
+        <div id="chat-messages">
+            </div>
+
+        <div class="chat-input-area">
+            <label class="action-btn">
+                <i class="fa-solid fa-paperclip"></i>
+                <input type="file" id="file-input" accept="image/*">
+            </label>
+            <input type="text" id="msg-input" placeholder="Введите директиву..." autocomplete="off">
+            <button class="action-btn send-btn" id="send-btn">SEND</button>
+        </div>
+    </main>
+
+    <aside class="online-list">
+        <h3 style="font-size: 12px; margin-bottom: 15px; color: #555;">NODES IN RANGE</h3>
+        <div id="peers-container">
+            </div>
+    </aside>
 </div>
 
 <script>
-    // Инициализация децентрализованной сети (используем несколько публичных узлов для надежности)
-    const gun = Gun([
-        'https://gun-manhattan.herokuapp.com/gun',
-        'https://relay.peer.ooo/gun'
-    ]);
-    const chatData = gun.get('vibe_global_v5'); // Комната чата
+    /**
+     * VIBE CORE ENGINE
+     * Децентрализованный чат на PeerJS
+     */
 
-    // Генерация ника
-    const names = ["Cyber", "Neon", "Ghost", "Void", "Pixel", "Dark", "User"];
-    let myNick = localStorage.getItem('vibe_nick') || names[Math.floor(Math.random()*names.length)] + "_" + Math.floor(Math.random()*999);
-    document.getElementById('nick-display').innerText = myNick;
+    const config = {
+        iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+    };
 
-    function changeNick() {
-        let n = prompt("Твой новый ник:", myNick);
-        if(n) { myNick = n; localStorage.setItem('vibe_nick', n); document.getElementById('nick-display').innerText = n; }
+    let peer;
+    let connections = {};
+    let myData = {
+        nick: "User_" + Math.floor(Math.random() * 1000),
+        ip: "0.0.0.0",
+        browser: navigator.userAgent.split(' ')[0],
+        os: navigator.platform
+    };
+
+    // 1. Инициализация профиля и получение IP
+    async function initUser() {
+        try {
+            const res = await fetch('https://api.ipify.org?format=json');
+            const data = await res.json();
+            myData.ip = data.ip;
+            document.getElementById('my-ip').innerText = data.ip;
+        } catch(e) { 
+            document.getElementById('my-ip').innerText = "Hidden/VPN";
+        }
+        document.getElementById('my-browser').innerText = myData.browser;
+        document.getElementById('my-os').innerText = myData.os;
+        
+        startPeer();
     }
 
-    // Функция отправки
-    function send(content, type = 'text') {
-        chatData.set({
-            who: myNick,
-            body: content,
-            type: type,
-            when: Date.now()
+    // 2. Запуск P2P
+    function startPeer() {
+        // Мы используем публичный ID, который можно передать другу для связи
+        // В реальном проекте здесь можно использовать фиксированные ID
+        peer = new Peer(myData.nick + "_" + Math.floor(Math.random()*999), {
+            debug: 2,
+            config: config
         });
+
+        peer.on('open', (id) => {
+            document.getElementById('my-peer-id').innerText = id;
+            document.getElementById('connection-status').innerHTML = '<span class="status-dot online"></span> ONLINE';
+            addSystemMessage("Узел инициализирован: " + id);
+            
+            // Если ты открыл 2 вкладки, тебе нужно "соединиться" с другой.
+            // В P2P чатах обычно используют сигнальный сервер для поиска всех, 
+            // но так как мы без регистрации, мы имитируем "подключение по ID"
+            console.log("Твой ID для других: ", id);
+        });
+
+        // Слушаем входящие подключения
+        peer.on('connection', (conn) => {
+            setupConnection(conn);
+        });
+
+        peer.on('error', (err) => {
+            console.error(err);
+            addSystemMessage("Ошибка сети: " + err.type);
+        });
+    }
+
+    function setupConnection(conn) {
+        connections[conn.peer] = conn;
+        
+        conn.on('open', () => {
+            addSystemMessage("Установлена связь с: " + conn.peer);
+            updateOnlineList();
+            // Отправляем свои данные новому другу
+            conn.send({ type: 'HANDSHAKE', user: myData });
+        });
+
+        conn.on('data', (data) => {
+            handleIncomingData(data, conn.peer);
+        });
+
+        conn.on('close', () => {
+            addSystemMessage("Связь разорвана: " + conn.peer);
+            delete connections[conn.peer];
+            updateOnlineList();
+        });
+    }
+
+    // 3. Обработка данных
+    function handleIncomingData(data, senderPeer) {
+        if (data.type === 'CHAT') {
+            appendMessage(data.user.nick, data.text, 'other', data.user);
+        } else if (data.type === 'IMAGE') {
+            appendMessage(data.user.nick, data.image, 'other', data.user, true);
+        } else if (data.type === 'HANDSHAKE') {
+            // Получили IP и инфо другого пользователя
+            updatePeerInfo(senderPeer, data.user);
+        }
+    }
+
+    // 4. Интерфейс
+    function appendMessage(sender, content, side, info = {}, isImg = false) {
+        const chatWindow = document.getElementById('chat-messages');
+        const div = document.createElement('div');
+        div.className = `message ${side}`;
+        
+        let meta = `<span class="meta">${sender} [IP: ${info.ip || '??'}] [OS: ${info.os || '??'}]</span>`;
+        let body = isImg ? `<img src="${content}">` : `<div>${content}</div>`;
+        
+        div.innerHTML = meta + body;
+        chatWindow.appendChild(div);
+        chatWindow.scrollTop = chatWindow.scrollHeight;
+    }
+
+    function addSystemMessage(text) {
+        const chatWindow = document.getElementById('chat-messages');
+        const div = document.createElement('div');
+        div.style.cssText = "text-align: center; font-size: 10px; color: #444; margin: 10px 0;";
+        div.innerText = ">> " + text;
+        chatWindow.appendChild(div);
+    }
+
+    function updateOnlineList() {
+        const container = document.getElementById('peers-container');
+        container.innerHTML = '';
+        Object.keys(connections).forEach(id => {
+            const div = document.createElement('div');
+            div.className = 'online-item';
+            div.innerText = id;
+            container.appendChild(div);
+        });
+    }
+
+    function updatePeerInfo(id, info) {
+        // Можно выводить в лог или обновлять список
+        console.log(`Данные узла ${id}:`, info);
+    }
+
+    // 5. Отправка
+    function broadcast(payload) {
+        Object.values(connections).forEach(conn => {
+            if (conn.open) conn.send(payload);
+        });
+        // Добавляем себе
+        if (payload.type === 'CHAT') appendMessage('YOU', payload.text, 'mine', myData);
+        if (payload.type === 'IMAGE') appendMessage('YOU', payload.image, 'mine', myData, true);
     }
 
     document.getElementById('send-btn').onclick = () => {
         const input = document.getElementById('msg-input');
-        if(input.value.trim()) { send(input.value); input.value = ''; }
+        if (input.value.trim()) {
+            // Если мы ни к кому не подключены, но хотим потестить - пробуем подключиться к себе (или по ID)
+            if (Object.keys(connections).length === 0) {
+                const target = prompt("С кем связаться? Введите ID другого окна/вкладки:");
+                if (target) {
+                    const conn = peer.connect(target);
+                    setupConnection(conn);
+                    setTimeout(() => broadcast({ type: 'CHAT', text: input.value, user: myData }), 1000);
+                }
+            } else {
+                broadcast({ type: 'CHAT', text: input.value, user: myData });
+            }
+            input.value = '';
+        }
     };
 
-    // Работа с фото
     document.getElementById('file-input').onchange = (e) => {
         const file = e.target.files[0];
         if (file) {
             const reader = new FileReader();
             reader.onload = (evt) => {
-                const img = new Image();
-                img.src = evt.target.result;
-                img.onload = () => {
-                    const canvas = document.createElement('canvas');
-                    const maxW = 400; // Сжимаем для скорости P2P
-                    const scale = maxW / img.width;
-                    canvas.width = maxW; canvas.height = img.height * scale;
-                    canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
-                    send(canvas.toDataURL('image/jpeg', 0.5), 'image');
-                };
+                broadcast({ type: 'IMAGE', image: evt.target.result, user: myData });
             };
             reader.readAsDataURL(file);
         }
     };
 
-    // Получение сообщений
-    const chatWindow = document.getElementById('chat-window');
-    chatData.map().once((data, id) => {
-        if (!data || !data.body) return;
+    // Слушаем Enter
+    document.getElementById('msg-input').onkeyup = (e) => { if(e.key === 'Enter') document.getElementById('send-btn').click(); };
 
-        const div = document.createElement('div');
-        div.className = `msg ${data.who === myNick ? 'mine' : 'other'}`;
-        
-        const content = data.type === 'text' 
-            ? `<div>${data.body}</div>` 
-            : `<img src="${data.body}">`;
+    // Запуск
+    initUser();
 
-        div.innerHTML = `<span class="sender-name">${data.who}</span>${content}`;
-        chatWindow.appendChild(div);
-        chatWindow.scrollTop = chatWindow.scrollHeight;
-    });
-
-    // Отправка по Enter
-    document.getElementById('msg-input').onkeypress = (e) => { if(e.key === 'Enter') document.getElementById('send-btn').click(); };
 </script>
-
 </body>
 </html>
