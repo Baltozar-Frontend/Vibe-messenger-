@@ -3,15 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>VIBE OMEGA</title>
+    <title>VIBE VOICE</title>
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
     <style>
         :root {
-            --bg: #000;
-            --glass: rgba(28, 28, 30, 0.7);
-            --accent: #007aff;
-            --text: #fff;
-            --muted: #8e8e93;
+            --bg: #000; --glass: rgba(28, 28, 30, 0.7);
+            --accent: #007aff; --danger: #ff3b30; --success: #32d74b;
+            --text: #fff; --muted: #8e8e93;
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, system-ui, sans-serif; }
@@ -19,262 +17,354 @@
 
         /* --- ГЛАВНЫЙ ЭКРАН --- */
         #app { display: flex; flex-direction: column; height: 100%; transition: 0.3s; }
+        header { padding: 40px 20px 20px; background: linear-gradient(to bottom, #1c1c1e, #000); }
+        .my-profile { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .my-name { font-size: 34px; font-weight: 800; cursor: pointer; border-bottom: 1px dashed var(--muted); }
         
-        header {
-            padding: 40px 20px 20px;
-            background: linear-gradient(to bottom, #1c1c1e, #000);
-        }
-        header h1 { font-size: 34px; font-weight: 800; letter-spacing: -1px; }
-
-        /* --- СПИСОК КОНТАКТОВ --- */
-        #contact-list {
-            flex: 1; overflow-y: auto; padding: 10px 20px;
-            display: flex; flex-direction: column; gap: 15px;
-        }
+        #contact-list { flex: 1; overflow-y: auto; padding: 10px 20px; display: flex; flex-direction: column; gap: 15px; }
         .contact-card {
-            background: var(--glass); backdrop-filter: blur(10px);
-            padding: 15px; border-radius: 16px; border: 1px solid #333;
-            display: flex; align-items: center; justify-content: space-between;
-            animation: slideIn 0.3s ease-out;
+            background: var(--glass); backdrop-filter: blur(10px); padding: 15px; border-radius: 16px;
+            border: 1px solid #333; display: flex; align-items: center; justify-content: space-between;
         }
-        @keyframes slideIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-
         .c-info b { font-size: 18px; display: block; }
         .c-info span { font-size: 12px; color: var(--muted); }
-        .c-btn {
-            background: var(--accent); color: #fff; border: none;
-            padding: 10px 20px; border-radius: 20px; font-weight: bold; cursor: pointer;
-        }
+        .c-btn { background: var(--accent); color: #fff; border: none; padding: 10px 20px; border-radius: 20px; font-weight: bold; cursor: pointer; }
 
         /* --- ОКНО ЧАТА --- */
         #chat-window {
             position: fixed; inset: 0; background: #000; z-index: 500;
-            display: none; flex-direction: column; transform: translateX(100%);
-            transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            display: none; flex-direction: column; transform: translateX(100%); transition: transform 0.3s;
         }
         #chat-window.active { display: flex; transform: translateX(0); }
 
-        .chat-head {
-            padding: 50px 20px 15px; background: var(--glass);
-            display: flex; align-items: center; gap: 15px; border-bottom: 0.5px solid #333;
-        }
-        .back-link { font-size: 30px; color: var(--accent); cursor: pointer; text-decoration: none; }
+        .chat-head { padding: 40px 20px 15px; background: var(--glass); display: flex; align-items: center; gap: 15px; border-bottom: 0.5px solid #333; }
+        .back-link { font-size: 30px; color: var(--accent); cursor: pointer; }
+        .head-info { flex: 1; }
+        .call-btn { background: var(--success); width: 40px; height: 40px; border-radius: 50%; border: none; font-size: 20px; cursor: pointer; }
 
         #messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 12px; }
-
-        /* ПУЗЫРЬКИ */
         .msg { max-width: 80%; padding: 12px 16px; border-radius: 20px; font-size: 16px; line-height: 1.4; position: relative; }
         .msg.mine { align-self: flex-end; background: var(--accent); border-bottom-right-radius: 4px; }
         .msg.other { align-self: flex-start; background: #262629; border-bottom-left-radius: 4px; }
-        .msg img { max-width: 100%; border-radius: 12px; margin-top: 8px; }
         .m-time { font-size: 10px; opacity: 0.6; display: block; margin-top: 4px; text-align: right; }
 
-        /* ВВОД */
-        .input-area {
-            padding: 15px 20px; background: #1c1c1e; display: flex; gap: 12px; align-items: center;
-            padding-bottom: max(20px, env(safe-area-inset-bottom));
-        }
-        .msg-input {
-            flex: 1; background: #2c2c2e; border: none; color: #fff;
-            padding: 12px 18px; border-radius: 24px; outline: none; font-size: 16px;
-        }
+        /* ВВОД & ПЕЧАТАЕТ */
+        .typing-ind { font-size: 12px; color: var(--accent); padding: 0 20px; height: 15px; font-style: italic; transition: 0.2s; opacity: 0; }
+        .typing-ind.show { opacity: 1; }
+        .input-area { padding: 10px 20px 20px; background: #1c1c1e; display: flex; gap: 12px; align-items: center; }
+        .msg-input { flex: 1; background: #2c2c2e; border: none; color: #fff; padding: 12px 18px; border-radius: 24px; outline: none; font-size: 16px; }
         .action-btn { background: none; border: none; color: var(--accent); font-size: 24px; cursor: pointer; }
 
-        /* ПУСТОЙ ЭКРАН */
-        .empty-state { text-align: center; color: var(--muted); margin-top: 100px; padding: 40px; }
+        /* --- ЭКРАН ЗВОНКА --- */
+        #call-screen {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 1000;
+            display: none; flex-direction: column; align-items: center; justify-content: center; backdrop-filter: blur(10px);
+        }
+        #call-status { font-size: 18px; color: var(--muted); margin-bottom: 30px; }
+        #call-name { font-size: 32px; font-weight: bold; margin-bottom: 50px; }
+        .call-actions { display: flex; gap: 30px; }
+        .btn-end { background: var(--danger); width: 70px; height: 70px; border-radius: 50%; border: none; font-size: 30px; color: white; cursor: pointer; }
+        .btn-accept { background: var(--success); width: 70px; height: 70px; border-radius: 50%; border: none; font-size: 30px; color: white; cursor: pointer; display: none; }
     </style>
 </head>
 <body>
 
 <div id="app">
     <header>
-        <span style="color: var(--accent); font-weight: bold; font-size: 12px; text-transform: uppercase;">Система Активна</span>
-        <h1>Мессенджер</h1>
+        <div class="my-profile">
+            <div>
+                <span style="color: var(--accent); font-size: 12px; text-transform: uppercase;">Твой профиль</span>
+                <div class="my-name" onclick="changeName()" id="ui-my-name">User</div>
+            </div>
+            <div style="width:10px; height:10px; background:var(--success); border-radius:50%;"></div>
+        </div>
     </header>
-
-    <div id="contact-list">
-        <div class="empty-state">Поиск людей в сети...</div>
-    </div>
+    <div id="contact-list"><div style="text-align:center; padding: 40px; color: #888;">Поиск сети...</div></div>
 </div>
 
 <div id="chat-window">
     <div class="chat-head">
         <div class="back-link" onclick="closeChat()">‹</div>
-        <div>
-            <b id="partner-nick">Имя</b>
-            <div id="partner-status" style="font-size:10px; color: #32d74b;">● В сети</div>
+        <div class="head-info">
+            <b id="partner-nick" style="font-size: 18px;">Имя</b>
+            <div style="font-size:12px; color: var(--success);">В сети</div>
         </div>
+        <button class="call-btn" onclick="startCall()">📞</button>
     </div>
     <div id="messages"></div>
+    <div class="typing-ind" id="typing-ui">печатает...</div>
     <div class="input-area">
-        <label class="action-btn">
-            + <input type="file" id="img-send" style="display:none" accept="image/*">
-        </label>
-        <input type="text" id="main-input" class="msg-input" placeholder="Cообщение">
+        <input type="text" id="main-input" class="msg-input" placeholder="Cообщение" oninput="handleTyping()">
         <button class="action-btn" onclick="sendVibe()">➤</button>
     </div>
 </div>
 
-<script>
-    // 1. ЗАЩИТА (из прошлого шага)
-    if (sessionStorage.getItem('vibe_access_granted') !== 'true') {
-        window.location.replace('index.html');
-    }
+<div id="call-screen">
+    <div id="call-status">Входящий звонок...</div>
+    <div id="call-name">Имя</div>
+    <div class="call-actions">
+        <button class="btn-end" onclick="endCall()">☎</button>
+        <button class="btn-accept" id="btn-accept-call" onclick="acceptCall()">📞</button>
+    </div>
+    <audio id="remote-audio" autoplay></audio>
+</div>
 
-    // 2. КОНФИГУРАЦИЯ
+<script>
+    if (sessionStorage.getItem('vibe_access_granted') !== 'true') window.location.replace('index.html');
+
     const BROKER = 'wss://broker.emqx.io:8084/mqtt';
-    const GLOBAL_TOPIC = 'vibe_v7_mega_radar';
+    const GLOBAL_TOPIC = 'vibe_v8_radar';
     
     let my = {
-        id: localStorage.getItem('vibe_v7_id') || 'v_' + Math.random().toString(36).substr(2, 9),
-        nick: localStorage.getItem('vibe_v7_nick') || 'User_' + Math.floor(Math.random()*999),
-        ip: '...', os: navigator.platform
+        id: localStorage.getItem('vibe_v8_id') || 'u_' + Math.random().toString(36).substr(2, 9),
+        nick: localStorage.getItem('vibe_v8_nick') || 'User_' + Math.floor(Math.random()*99),
+        os: navigator.platform
     };
-    localStorage.setItem('vibe_v7_id', my.id);
+    localStorage.setItem('vibe_v8_id', my.id);
+    document.getElementById('ui-my-name').innerText = my.nick;
 
     let client;
     let activeChat = null;
     let users = new Map();
-    let db = JSON.parse(localStorage.getItem('vibe_v7_db')) || {};
+    let db = JSON.parse(localStorage.getItem('vibe_v8_db')) || {};
+    let typingTimer;
 
-    // 3. ЗАПУСК
+    // --- WEBRTC ЗВОНКИ ---
+    let localStream;
+    let peerConnection;
+    let currentCallPartner = null;
+    const rtcConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+
     function init() {
-        fetch('https://api.ipify.org?format=json').then(r => r.json()).then(d => my.ip = d.ip);
-        
         client = mqtt.connect(BROKER, { clientId: 'cl_' + my.id });
 
         client.on('connect', () => {
             client.subscribe([GLOBAL_TOPIC, `v_direct_${my.id}`]);
-            
-            // ФИШКА v7: Мгновенное приветствие
-            client.publish(GLOBAL_TOPIC, JSON.stringify({ type: 'HELLO', user: my }));
+            broadcastPresence();
         });
 
-        client.on('message', (topic, payload) => {
+        client.on('message', async (topic, payload) => {
             const data = JSON.parse(payload.toString());
             
             if (topic === GLOBAL_TOPIC) {
                 if (data.type === 'HELLO') {
-                    // Кто-то зашел! Добавляем его и отвечаем, чтобы он нас увидел
                     users.set(data.user.id, { ...data.user, last: Date.now() });
                     client.publish(GLOBAL_TOPIC, JSON.stringify({ type: 'WELCOME', to: data.user.id, user: my }));
                     renderUsers();
                 }
                 if (data.type === 'WELCOME' && data.to === my.id) {
-                    // Нам ответили на наше приветствие
                     users.set(data.user.id, { ...data.user, last: Date.now() });
                     renderUsers();
                 }
             } else {
-                handlePrivate(data);
+                handleDirect(data);
             }
         });
     }
 
-    // 4. ЛОГИКА РАБОТЫ
+    // --- СМЕНА ИМЕНИ ---
+    function changeName() {
+        const newName = prompt("Введите новое имя:", my.nick);
+        if (newName && newName.trim().length > 0) {
+            my.nick = newName.trim();
+            localStorage.setItem('vibe_v8_nick', my.nick);
+            document.getElementById('ui-my-name').innerText = my.nick;
+            broadcastPresence(); // Сразу сообщаем всем новое имя
+        }
+    }
+
+    function broadcastPresence() {
+        client.publish(GLOBAL_TOPIC, JSON.stringify({ type: 'HELLO', user: my }));
+    }
+
+    // --- ОБРАБОТКА ЛИЧНЫХ СООБЩЕНИЙ И СИГНАЛОВ ---
+    async function handleDirect(msg) {
+        if (msg.type === 'text') {
+            save(msg.from, msg);
+            if (activeChat === msg.from) {
+                document.getElementById('typing-ui').classList.remove('show');
+                loadMsgs();
+            }
+        } 
+        else if (msg.type === 'TYPING') {
+            if (activeChat === msg.from) {
+                const ui = document.getElementById('typing-ui');
+                ui.classList.add('show');
+                clearTimeout(typingTimer);
+                typingTimer = setTimeout(() => ui.classList.remove('show'), 2000);
+            }
+        }
+        // WebRTC Сигналинг звонков
+        else if (msg.type === 'CALL_OFFER') {
+            handleIncomingCall(msg);
+        }
+        else if (msg.type === 'CALL_ANSWER') {
+            await peerConnection.setRemoteDescription(new RTCSessionDescription(msg.sdp));
+        }
+        else if (msg.type === 'CALL_ICE') {
+            if (peerConnection) peerConnection.addIceCandidate(new RTCIceCandidate(msg.candidate));
+        }
+        else if (msg.type === 'CALL_END') {
+            closeCallUI();
+        }
+    }
+
+    // --- ЧАТ И ПЕЧАТАЕТ ---
+    function handleTyping() {
+        if (!activeChat) return;
+        client.publish(`v_direct_${activeChat}`, JSON.stringify({ type: 'TYPING', from: my.id }));
+    }
+
+    function sendVibe() {
+        const inp = document.getElementById('main-input');
+        const txt = inp.value.trim();
+        if (!txt || !activeChat) return;
+
+        const packet = { from: my.id, nick: my.nick, body: txt, type: 'text', time: new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) };
+        client.publish(`v_direct_${activeChat}`, JSON.stringify(packet));
+        save(activeChat, packet);
+        inp.value = '';
+        loadMsgs();
+    }
+
+    // ... (Функции renderUsers, openChat, closeChat, save, loadMsgs аналогичны v7)
     function renderUsers() {
         const list = document.getElementById('contact-list');
-        if (users.size === 0) {
-            list.innerHTML = '<div class="empty-state">Никого нет в сети...</div>';
-            return;
-        }
         list.innerHTML = '';
         users.forEach((u, id) => {
             if (id === my.id) return;
             const div = document.createElement('div');
             div.className = 'contact-card';
-            div.innerHTML = `
-                <div class="c-info">
-                    <b>${u.nick}</b>
-                    <span>${u.os} • ${u.ip}</span>
-                </div>
-                <button class="c-btn" onclick="openChat('${id}')">ЧАТ</button>
-            `;
+            div.innerHTML = `<div class="c-info"><b>${u.nick}</b><span>${u.os}</span></div>
+                             <button class="c-btn" onclick="openChat('${id}')">ЧАТ</button>`;
             list.appendChild(div);
         });
     }
 
     function openChat(id) {
         activeChat = id;
-        const u = users.get(id);
-        document.getElementById('partner-nick').innerText = u.nick;
+        document.getElementById('partner-nick').innerText = users.get(id).nick;
         document.getElementById('chat-window').classList.add('active');
-        document.getElementById('chat-window').style.display = 'flex';
         loadMsgs();
     }
-
-    function closeChat() {
-        document.getElementById('chat-window').classList.remove('active');
-        activeChat = null;
-    }
-
-    function sendVibe(type = 'text', body = null) {
-        const txt = body || document.getElementById('main-input').value.trim();
-        if (!txt || !activeChat) return;
-
-        const packet = {
-            from: my.id, nick: my.nick, body: txt, type: type,
-            time: new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})
-        };
-
-        client.publish(`v_direct_${activeChat}`, JSON.stringify(packet));
-        save(activeChat, packet);
-        if (type === 'text') document.getElementById('main-input').value = '';
-        loadMsgs();
-    }
-
-    function handlePrivate(msg) {
-        save(msg.from, msg);
-        if (activeChat === msg.from) loadMsgs();
-    }
-
+    function closeChat() { document.getElementById('chat-window').classList.remove('active'); activeChat = null; }
+    
     function save(id, msg) {
         if (!db[id]) db[id] = [];
         db[id].push(msg);
-        localStorage.setItem('vibe_v7_db', JSON.stringify(db));
+        localStorage.setItem('vibe_v8_db', JSON.stringify(db));
     }
-
+    
     function loadMsgs() {
         const box = document.getElementById('messages');
         box.innerHTML = '';
         (db[activeChat] || []).forEach(m => {
             const isMine = m.from === my.id;
-            const div = document.createElement('div');
-            div.className = `msg ${isMine ? 'mine' : 'other'}`;
-            div.innerHTML = `
-                ${m.type === 'text' ? m.body : `<img src="${m.body}">`}
-                <span class="m-time">${m.time}</span>
-            `;
-            box.appendChild(div);
+            box.innerHTML += `<div class="msg ${isMine ? 'mine' : 'other'}">${m.body}<span class="m-time">${m.time}</span></div>`;
         });
         box.scrollTop = box.scrollHeight;
     }
 
-    // Фото и ввод
     document.getElementById('main-input').onkeypress = (e) => { if(e.key==='Enter') sendVibe(); };
-    document.getElementById('img-send').onchange = (e) => {
-        const f = e.target.files[0];
-        const r = new FileReader();
-        r.onload = (ev) => {
-            const img = new Image();
-            img.src = ev.target.result;
-            img.onload = () => {
-                const cvs = document.createElement('canvas');
-                const s = 400 / img.width;
-                cvs.width = 400; cvs.height = img.height * s;
-                cvs.getContext('2d').drawImage(img,0,0,400,cvs.height);
-                sendVibe('image', cvs.toDataURL('image/jpeg', 0.5));
-            };
-        };
-        r.readAsDataURL(f);
-    };
 
-    // Чистка оффлайна
+    // --- ЛОГИКА ЗВОНКОВ (WebRTC) ---
+    async function startCall() {
+        if (!activeChat) return;
+        currentCallPartner = activeChat;
+        showCallUI('Звоним...', users.get(activeChat).nick, false);
+
+        try {
+            localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            createPeerConnection();
+            localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+
+            const offer = await peerConnection.createOffer();
+            await peerConnection.setLocalDescription(offer);
+            
+            client.publish(`v_direct_${currentCallPartner}`, JSON.stringify({ 
+                type: 'CALL_OFFER', from: my.id, nick: my.nick, sdp: offer 
+            }));
+        } catch (err) {
+            alert('Нужно разрешение на микрофон!');
+            closeCallUI();
+        }
+    }
+
+    let incomingOffer = null;
+    function handleIncomingCall(msg) {
+        currentCallPartner = msg.from;
+        incomingOffer = msg.sdp;
+        showCallUI('Входящий...', msg.nick, true);
+        // Можно добавить звук звонка здесь
+    }
+
+    async function acceptCall() {
+        document.getElementById('btn-accept-call').style.display = 'none';
+        document.getElementById('call-status').innerText = 'Соединение...';
+
+        try {
+            localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            createPeerConnection();
+            localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+
+            await peerConnection.setRemoteDescription(new RTCSessionDescription(incomingOffer));
+            const answer = await peerConnection.createAnswer();
+            await peerConnection.setLocalDescription(answer);
+
+            client.publish(`v_direct_${currentCallPartner}`, JSON.stringify({ 
+                type: 'CALL_ANSWER', from: my.id, sdp: answer 
+            }));
+            
+            document.getElementById('call-status').innerText = 'Разговор идёт (00:00)';
+        } catch (err) {
+            alert('Микрофон недоступен!');
+            endCall();
+        }
+    }
+
+    function createPeerConnection() {
+        peerConnection = new RTCPeerConnection(rtcConfig);
+        
+        peerConnection.onicecandidate = (event) => {
+            if (event.candidate) {
+                client.publish(`v_direct_${currentCallPartner}`, JSON.stringify({ 
+                    type: 'CALL_ICE', from: my.id, candidate: event.candidate 
+                }));
+            }
+        };
+
+        peerConnection.ontrack = (event) => {
+            document.getElementById('remote-audio').srcObject = event.streams[0];
+            document.getElementById('call-status').innerText = 'Соединено!';
+        };
+    }
+
+    function endCall() {
+        if (currentCallPartner) {
+            client.publish(`v_direct_${currentCallPartner}`, JSON.stringify({ type: 'CALL_END', from: my.id }));
+        }
+        closeCallUI();
+    }
+
+    function closeCallUI() {
+        document.getElementById('call-screen').style.display = 'none';
+        if (peerConnection) { peerConnection.close(); peerConnection = null; }
+        if (localStream) { localStream.getTracks().forEach(t => t.stop()); localStream = null; }
+        currentCallPartner = null;
+        incomingOffer = null;
+    }
+
+    function showCallUI(status, name, showAccept) {
+        document.getElementById('call-screen').style.display = 'flex';
+        document.getElementById('call-status').innerText = status;
+        document.getElementById('call-name').innerText = name;
+        document.getElementById('btn-accept-call').style.display = showAccept ? 'block' : 'none';
+    }
+
+    // Очистка
     setInterval(() => {
         let changed = false;
-        users.forEach((u, id) => {
-            if (Date.now() - u.last > 8000) { users.delete(id); changed = true; }
-        });
+        users.forEach((u, id) => { if (Date.now() - u.last > 8000) { users.delete(id); changed = true; } });
         if (changed) renderUsers();
     }, 5000);
 
