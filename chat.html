@@ -143,6 +143,14 @@
     </div>
 
     <script>
+        // --- ПРОВЕРКА ДОСТУПА (БЕЗОПАСНОСТЬ) ---
+if (sessionStorage.getItem('vibe_access_granted') !== 'true') {
+    // Если ключа нет, мгновенно выкидываем на страницу входа
+    window.location.replace('index.html');
+}
+
+// Дальше идет твой обычный код мессенджера...
+
         const BROKER = 'wss://broker.emqx.io:8084/mqtt';
         const RADAR_TOPIC = 'vibe_v6_radar_global';
         
