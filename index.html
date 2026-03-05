@@ -3,329 +3,325 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>VIBE SONIC // GLOBAL</title>
+    <title>VIBE PRIVATE</title>
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
     <style>
         :root {
-            --bg: #050505;
-            --panel: #121214;
-            --accent: #007aff; /* Классический синий Apple-style для твоих сообщений */
-            --other: #262629;
+            --bg: #000000;
+            --panel: #1c1c1e;
+            --accent: #007aff;
             --text: #ffffff;
             --muted: #8e8e93;
+            --msg-other: #262629;
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, system-ui, sans-serif; }
 
-        body { background: var(--bg); color: var(--text); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+        body { background: var(--bg); color: var(--text); height: 100vh; overflow: hidden; }
 
         /* --- ВХОД --- */
         #login-screen {
-            position: fixed; inset: 0; background: var(--bg); z-index: 1000;
+            position: fixed; inset: 0; background: var(--bg); z-index: 2000;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
         }
-        .login-box { width: 85%; max-width: 350px; text-align: center; }
-        .login-box h1 { margin-bottom: 30px; font-weight: 800; letter-spacing: -1px; }
-        input.nick-input {
+        .login-box { width: 80%; max-width: 300px; text-align: center; }
+        .login-input {
             width: 100%; background: var(--panel); border: 1px solid #333; color: white;
             padding: 16px; border-radius: 14px; font-size: 16px; margin-bottom: 15px; outline: none;
         }
-        .start-btn {
+        .login-btn {
             width: 100%; background: var(--accent); color: white; border: none;
-            padding: 16px; border-radius: 14px; font-weight: bold; cursor: pointer;
+            padding: 16px; border-radius: 14px; font-weight: bold;
         }
 
-        /* --- ШАПКА --- */
+        /* --- ГЛАВНЫЙ ЭКРАН (СПИСОК ЛЮДЕЙ) --- */
+        #main-screen { display: flex; flex-direction: column; height: 100%; }
         header {
-            padding: 12px 16px; background: rgba(18, 18, 20, 0.8); backdrop-filter: blur(20px);
+            padding: 20px 16px; border-bottom: 0.5px solid #333;
             display: flex; justify-content: space-between; align-items: center;
-            border-bottom: 0.5px solid #333;
         }
-        .status-group { display: flex; align-items: center; gap: 8px; }
-        .indicator { width: 8px; height: 8px; background: #32d74b; border-radius: 50%; box-shadow: 0 0 10px #32d74b; }
+        .user-item {
+            padding: 16px; border-bottom: 0.5px solid #222;
+            display: flex; justify-content: space-between; align-items: center;
+            transition: 0.2s;
+        }
+        .user-item:active { background: #1c1c1e; }
+        .user-info b { display: block; font-size: 16px; }
+        .user-info span { font-size: 12px; color: var(--muted); }
+        .msg-icon {
+            width: 40px; height: 40px; background: var(--accent);
+            border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            font-size: 18px; cursor: pointer;
+        }
 
-        /* --- ЧАТ --- */
-        #chat-flow {
-            flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 8px;
-            scroll-behavior: smooth;
+        /* --- ОКНО ЧАТА (СКРЫТО ПО УМОЛЧАНИЮ) --- */
+        #chat-screen {
+            position: fixed; inset: 0; background: var(--bg); z-index: 100;
+            display: none; flex-direction: column;
+            transform: translateX(100%); transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
-        .msg-wrapper { display: flex; flex-direction: column; margin-bottom: 8px; max-width: 80%; }
-        .msg-wrapper.mine { align-self: flex-end; }
-        .msg-wrapper.other { align-self: flex-start; }
+        #chat-screen.active { display: flex; transform: translateX(0); }
 
-        .author-tag { font-size: 11px; color: var(--muted); margin-bottom: 4px; margin-left: 12px; }
-        .msg-bubble {
-            padding: 10px 16px; border-radius: 20px; font-size: 15px; line-height: 1.4;
-            position: relative; transition: 0.1s;
+        .chat-header {
+            padding: 12px 16px; background: var(--panel);
+            display: flex; align-items: center; gap: 15px; border-bottom: 0.5px solid #333;
         }
-        .mine .msg-bubble { background: var(--accent); border-bottom-right-radius: 4px; }
-        .other .msg-bubble { background: var(--other); border-bottom-left-radius: 4px; }
-        
-        .msg-bubble img { max-width: 100%; border-radius: 12px; margin-top: 5px; }
+        .back-btn { font-size: 24px; color: var(--accent); cursor: pointer; }
 
-        /* --- БОКОВАЯ ПАНЕЛЬ (ПРОФИЛИ) --- */
-        #sidebar {
-            position: fixed; right: -100%; top: 0; width: 80%; max-width: 300px; height: 100%;
-            background: var(--panel); transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            z-index: 500; padding: 20px; border-left: 1px solid #333;
+        #chat-messages {
+            flex: 1; overflow-y: auto; padding: 16px;
+            display: flex; flex-direction: column; gap: 10px;
         }
-        #sidebar.open { right: 0; }
-        .sidebar-header { display: flex; justify-content: space-between; margin-bottom: 20px; color: var(--accent); font-weight: bold; }
 
-        .profile-card {
-            background: #000; border-radius: 12px; padding: 15px; margin-bottom: 10px;
-            border: 0.5px solid #444; font-size: 12px;
+        /* --- ПУЗЫРЬКИ --- */
+        .bubble {
+            max-width: 75%; padding: 10px 14px; border-radius: 18px; font-size: 15px;
+            line-height: 1.4; position: relative;
         }
-        .profile-card b { color: var(--accent); display: block; margin-bottom: 5px; font-size: 14px; }
-        .profile-card span { color: var(--muted); }
+        .bubble.mine { align-self: flex-end; background: var(--accent); border-bottom-right-radius: 4px; }
+        .bubble.other { align-self: flex-start; background: var(--msg-other); border-bottom-left-radius: 4px; }
+        .bubble img { max-width: 100%; border-radius: 12px; margin-top: 5px; }
+        .bubble-time { font-size: 10px; opacity: 0.5; margin-top: 4px; display: block; text-align: right; }
 
         /* --- ВВОД --- */
-        footer {
-            padding: 12px 16px; background: var(--bg); border-top: 0.5px solid #333;
+        .chat-input-area {
+            padding: 10px 16px; background: var(--panel);
             display: flex; gap: 10px; align-items: center;
+            padding-bottom: max(10px, env(safe-area-inset-bottom));
         }
-        .input-box {
-            flex: 1; background: var(--panel); border: none; color: white;
-            padding: 12px 16px; border-radius: 22px; font-size: 15px; outline: none;
+        .input-field {
+            flex: 1; background: #2c2c2e; border: none; color: white;
+            padding: 10px 16px; border-radius: 20px; outline: none;
         }
-        .circle-btn {
-            width: 36px; height: 36px; border-radius: 50%; border: none;
-            background: #262629; color: var(--accent); font-size: 20px; cursor: pointer;
-            display: flex; align-items: center; justify-content: center;
+
+        /* --- АНИМАЦИЯ ПЕЧАТАЕТ --- */
+        #typing-indicator {
+            font-size: 12px; color: var(--accent); padding-left: 20px;
+            height: 20px; display: none;
         }
-        .send-btn-active { background: var(--accent); color: white; }
+
     </style>
 </head>
 <body>
 
     <div id="login-screen">
         <div class="login-box">
-            <h1>VIBE <span style="color: var(--accent)">SONIC</span></h1>
-            <input type="text" id="nick-field" class="nick-input" placeholder="Никнейм">
-            <button class="start-btn" onclick="joinChat()">ВОЙТИ В СЕТЬ</button>
+            <h1 style="margin-bottom:20px">VIBE <span style="color:var(--accent)">PRVT</span></h1>
+            <input type="text" id="nick-input" class="login-input" placeholder="Ваше имя">
+            <button class="login-btn" onclick="join()">НАЧАТЬ</button>
         </div>
     </div>
 
-    <header>
-        <div class="status-group">
-            <div class="indicator"></div>
-            <span style="font-weight: 700; font-size: 14px;">VIBE GLOBAL</span>
-        </div>
-        <button onclick="toggleSidebar()" style="background:none; border:none; color:var(--accent); font-weight:bold; cursor:pointer;">
-            👥 <span id="online-val">1</span>
-        </button>
-    </header>
-
-    <div id="sidebar">
-        <div class="sidebar-header">
-            <span>УЗЛЫ В СЕТИ</span>
-            <span onclick="toggleSidebar()" style="cursor:pointer">✕</span>
-        </div>
-        <div id="user-list"></div>
+    <div id="main-screen">
+        <header>
+            <h2 style="font-size: 24px;">Люди в сети</h2>
+            <div id="my-status" style="font-size:12px; color:var(--accent)">● Online</div>
+        </header>
+        <div id="user-list" style="flex:1; overflow-y:auto">
+            </div>
     </div>
 
-    <div id="chat-flow"></div>
+    <div id="chat-screen">
+        <div class="chat-header">
+            <div class="back-btn" onclick="closeChat()">‹</div>
+            <div>
+                <b id="chat-with-name">Имя друга</b>
+                <div id="chat-with-info" style="font-size:10px; color:var(--muted)">IP: ... | OS: ...</div>
+            </div>
+        </div>
+        
+        <div id="chat-messages"></div>
+        <div id="typing-indicator">печатает...</div>
 
-    <footer>
-        <label class="circle-btn">
-            + <input type="file" id="img-up" accept="image/*" style="display:none">
-        </label>
-        <input type="text" id="msg-input" class="input-box" placeholder="Сообщение..." autocomplete="off">
-        <button class="circle-btn send-btn-active" id="send-vibe">➤</button>
-    </footer>
+        <div class="chat-input-area">
+            <label style="font-size:24px; color:var(--accent)">
+                + <input type="file" id="file-up" style="display:none" accept="image/*">
+            </label>
+            <input type="text" id="msg-input" class="input-field" placeholder="Сообщение...">
+            <button onclick="sendMsg()" style="background:none; border:none; color:var(--accent); font-weight:bold; font-size:18px">➤</button>
+        </div>
+    </div>
 
     <script>
-        // --- CONFIG ---
-        const MQTT_HOST = 'wss://broker.emqx.io:8084/mqtt';
-        const CHAT_TOPIC = 'vibe_v5_pro_stream';
-        const SYS_TOPIC = 'vibe_v5_pro_sys';
-
-        // Персональные данные (сохраняются навсегда)
+        const BROKER = 'wss://broker.emqx.io:8084/mqtt';
+        const RADAR_TOPIC = 'vibe_v6_radar_global';
+        
         let myData = {
-            id: localStorage.getItem('vibe_v5_id') || Math.random().toString(36).substr(2, 9),
-            nick: localStorage.getItem('vibe_v5_nick') || '',
-            ip: '0.0.0.0',
-            os: navigator.platform,
-            browser: 'App'
+            id: localStorage.getItem('vibe_v6_id') || 'u_' + Math.random().toString(36).substr(2, 9),
+            nick: localStorage.getItem('vibe_v6_nick') || '',
+            ip: '...', os: navigator.platform
         };
-        localStorage.setItem('vibe_v5_id', myData.id);
+        localStorage.setItem('vibe_v6_id', myData.id);
 
         let client;
-        let history = JSON.parse(localStorage.getItem('vibe_v5_history')) || [];
-        const activeUsers = new Map();
+        let activePartnerId = null;
+        let onlineUsers = new Map();
+        // Структура: { partnerId: [messages] }
+        let chatStorage = JSON.parse(localStorage.getItem('vibe_v6_storage')) || {};
 
-        // --- ВХОД ---
         if (myData.nick) {
             document.getElementById('login-screen').style.display = 'none';
-            initConnection();
+            init();
         }
 
-        async function joinChat() {
-            const n = document.getElementById('nick-field').value.trim();
+        async function join() {
+            const n = document.getElementById('nick-input').value.trim();
             if (n) {
                 myData.nick = n;
-                localStorage.setItem('vibe_v5_nick', n);
+                localStorage.setItem('vibe_v6_nick', n);
                 document.getElementById('login-screen').style.display = 'none';
-                initConnection();
+                init();
             }
         }
 
-        // --- CORE ENGINE ---
-        async function initConnection() {
-            renderMessages();
-            
-            // Получаем IP для профиля
+        function init() {
             fetch('https://api.ipify.org?format=json').then(r => r.json()).then(d => myData.ip = d.ip);
-
-            client = mqtt.connect(MQTT_HOST, { clientId: 'v_id_' + myData.id });
+            
+            client = mqtt.connect(BROKER, { clientId: 'vibe_cl_' + myData.id });
 
             client.on('connect', () => {
-                client.subscribe([CHAT_TOPIC, SYS_TOPIC]);
-                
-                // Радар
-                setInterval(() => {
-                    client.publish(SYS_TOPIC, JSON.stringify({ type: 'PING', user: myData }));
-                }, 2000);
+                client.subscribe(RADAR_TOPIC);
+                client.subscribe(`vibe_v6_direct_${myData.id}`); // Мой личный канал
 
-                // Запрос истории у тех, кто онлайн (для синхронизации)
-                client.publish(SYS_TOPIC, JSON.stringify({ type: 'GET_H', from: myData.id }));
+                // Сообщаем всем, что мы тут
+                setInterval(() => {
+                    client.publish(RADAR_TOPIC, JSON.stringify({ type: 'PING', user: myData }));
+                }, 2000);
             });
 
             client.on('message', (topic, payload) => {
                 const data = JSON.parse(payload.toString());
-
-                if (topic === CHAT_TOPIC) {
-                    processIncoming(data);
-                } else if (topic === SYS_TOPIC) {
-                    handleSystem(data);
+                
+                if (topic === RADAR_TOPIC) {
+                    if (data.type === 'PING') {
+                        onlineUsers.set(data.user.id, { ...data.user, last: Date.now() });
+                        renderUserList();
+                    }
+                } else {
+                    // Это личное сообщение!
+                    handlePrivateMessage(data);
                 }
+            });
+
+            // Проверка на оффлайн
+            setInterval(() => {
+                const now = Date.now();
+                onlineUsers.forEach((u, id) => {
+                    if (now - u.last > 6000) onlineUsers.delete(id);
+                });
+                renderUserList();
+            }, 5000);
+        }
+
+        function renderUserList() {
+            const list = document.getElementById('user-list');
+            list.innerHTML = '';
+            onlineUsers.forEach((user, id) => {
+                if (id === myData.id) return;
+                const item = document.createElement('div');
+                item.className = 'user-item';
+                item.innerHTML = `
+                    <div class="user-info">
+                        <b>${user.nick}</b>
+                        <span>${user.os} | ${user.ip}</span>
+                    </div>
+                    <div class="msg-icon" onclick="openChat('${id}')">💬</div>
+                `;
+                list.appendChild(item);
             });
         }
 
-        function handleSystem(data) {
-            if (data.type === 'PING') {
-                activeUsers.set(data.user.id, { ...data.user, last: Date.now() });
-                updateUserUI();
-            }
-            if (data.type === 'GET_H' && history.length > 0 && data.from !== myData.id) {
-                client.publish(SYS_TOPIC, JSON.stringify({ type: 'SEND_H', to: data.from, h: history.slice(-30) }));
-            }
-            if (data.type === 'SEND_H' && data.to === myData.id) {
-                mergeHistory(data.h);
-            }
+        // --- ЛОГИКА ЧАТА ---
+        function openChat(partnerId) {
+            activePartnerId = partnerId;
+            const user = onlineUsers.get(partnerId);
+            document.getElementById('chat-with-name').innerText = user.nick;
+            document.getElementById('chat-with-info').innerText = `IP: ${user.ip} | OS: ${user.os}`;
+            
+            document.getElementById('chat-screen').classList.add('active');
+            document.getElementById('chat-screen').style.display = 'flex';
+            renderMessages();
         }
 
-        // --- MESSAGING ---
-        function send(content, type = 'text') {
+        function closeChat() {
+            document.getElementById('chat-screen').classList.remove('active');
+            setTimeout(() => { document.getElementById('chat-screen').style.display = 'none'; }, 300);
+            activePartnerId = null;
+        }
+
+        function sendMsg(type = 'text', content = null) {
+            const val = content || document.getElementById('msg-input').value.trim();
+            if (!val || !activePartnerId) return;
+
             const msg = {
-                mId: Math.random().toString(36).substr(2, 9),
-                uId: myData.id,
-                uNick: myData.nick,
-                body: content,
+                senderId: myData.id,
+                senderNick: myData.nick,
+                body: val,
                 type: type,
-                ts: Date.now()
+                time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
             };
-            // QoS 0 для максимальной скорости
-            client.publish(CHAT_TOPIC, JSON.stringify(msg), { qos: 0 });
+
+            // Отправляем в личный канал партнера
+            client.publish(`vibe_v6_direct_${activePartnerId}`, JSON.stringify(msg));
+
+            // Сохраняем у себя
+            saveMessage(activePartnerId, msg);
+            if (type === 'text') document.getElementById('msg-input').value = '';
+            renderMessages();
         }
 
-        function processIncoming(msg) {
-            if (!history.find(x => x.mId === msg.mId)) {
-                history.push(msg);
-                if (history.length > 100) history.shift();
-                localStorage.setItem('vibe_v5_history', JSON.stringify(history));
-                displayMsg(msg);
+        function handlePrivateMessage(msg) {
+            saveMessage(msg.senderId, msg);
+            if (activePartnerId === msg.senderId) {
+                renderMessages();
+            } else {
+                // Можно добавить звук или уведомление, что пришло сообщение от другого
+                console.log("Новое сообщение от " + msg.senderNick);
             }
         }
 
-        function displayMsg(msg) {
-            const flow = document.getElementById('chat-flow');
-            const isMine = msg.uId === myData.id;
-            
-            const wrapper = document.createElement('div');
-            wrapper.className = `msg-wrapper ${isMine ? 'mine' : 'other'}`;
-            
-            const content = msg.type === 'text' 
-                ? `<div>${msg.body}</div>` 
-                : `<img src="${msg.body}">`;
-
-            wrapper.innerHTML = `
-                ${!isMine ? `<span class="author-tag">${msg.uNick}</span>` : ''}
-                <div class="msg-bubble">${content}</div>
-            `;
-            
-            flow.appendChild(wrapper);
-            flow.scrollTop = flow.scrollHeight;
+        function saveMessage(chatId, msg) {
+            if (!chatStorage[chatId]) chatStorage[chatId] = [];
+            chatStorage[chatId].push(msg);
+            if (chatStorage[chatId].length > 50) chatStorage[chatId].shift();
+            localStorage.setItem('vibe_v6_storage', JSON.stringify(chatStorage));
         }
 
         function renderMessages() {
-            document.getElementById('chat-flow').innerHTML = '';
-            history.forEach(displayMsg);
-        }
-
-        function mergeHistory(newH) {
-            let changed = false;
-            newH.forEach(m => {
-                if (!history.find(x => x.mId === m.mId)) {
-                    history.push(m);
-                    changed = true;
-                }
-            });
-            if (changed) {
-                history.sort((a,b) => a.ts - b.ts);
-                localStorage.setItem('vibe_v5_history', JSON.stringify(history));
-                renderMessages();
-            }
-        }
-
-        // --- UI ---
-        function updateUserUI() {
-            const list = document.getElementById('user-list');
-            const count = document.getElementById('online-val');
-            const now = Date.now();
+            const container = document.getElementById('chat-messages');
+            container.innerHTML = '';
+            const msgs = chatStorage[activePartnerId] || [];
             
-            activeUsers.forEach((u, id) => {
-                if (now - u.last > 6000) activeUsers.delete(id);
+            msgs.forEach(m => {
+                const isMine = m.senderId === myData.id;
+                const div = document.createElement('div');
+                div.className = `bubble ${isMine ? 'mine' : 'other'}`;
+                
+                let body = m.type === 'text' ? m.body : `<img src="${m.body}">`;
+                div.innerHTML = `${body} <span class="bubble-time">${m.time}</span>`;
+                container.appendChild(div);
             });
-
-            count.innerText = activeUsers.size;
-            list.innerHTML = '';
-            activeUsers.forEach(u => {
-                const card = document.createElement('div');
-                card.className = 'profile-card';
-                card.innerHTML = `
-                    <b>${u.nick} ${u.id === myData.id ? '(Вы)' : ''}</b>
-                    <span>IP: ${u.ip}</span><br>
-                    <span>OS: ${u.os}</span>
-                `;
-                list.appendChild(card);
-            });
+            container.scrollTop = container.scrollHeight;
         }
 
-        function toggleSidebar() { document.getElementById('sidebar').classList.toggle('open'); }
+        // --- ФОТО И ВВОД ---
+        document.getElementById('msg-input').onkeypress = (e) => { if(e.key === 'Enter') sendMsg(); };
 
-        document.getElementById('send-vibe').onclick = () => {
-            const i = document.getElementById('msg-input');
-            if (i.value.trim()) { send(i.value); i.value = ''; }
-        };
-
-        document.getElementById('msg-input').onkeypress = (e) => { if(e.key === 'Enter') document.getElementById('send-vibe').click(); };
-
-        document.getElementById('img-up').onchange = (e) => {
+        document.getElementById('file-up').onchange = (e) => {
             const file = e.target.files[0];
-            const reader = new FileReader();
-            reader.onload = (ev) => {
+            const r = new FileReader();
+            r.onload = (ev) => {
                 const img = new Image();
                 img.src = ev.target.result;
                 img.onload = () => {
                     const canvas = document.createElement('canvas');
                     const scale = 400 / img.width;
                     canvas.width = 400; canvas.height = img.height * scale;
-                    canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
-                    send(canvas.toDataURL('image/jpeg', 0.5), 'image');
+                    canvas.getContext('2d').drawImage(img, 0, 0, 400, canvas.height);
+                    sendMsg('image', canvas.toDataURL('image/jpeg', 0.5));
                 };
             };
-            reader.readAsDataURL(file);
+            r.readAsDataURL(file);
         };
     </script>
 </body>
