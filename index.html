@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VIBE // NO REG</title>
+    <script src="https://cdn.jsdelivr.net/npm/gun/gun.js"></script>
+    <style>
+        :root {
+            --bg: #0b0b0d;
+            --accent: #00ff95; /* Неоновый зеленый */
+            --panel: #16161a;
+            --text: #ffffff;
+        }
+
+        body {
+            margin: 0; background: var(--bg); color: var(--text);
+            font-family: 'Segoe UI', Roboto, sans-serif;
+            display: flex; justify-content: center; height: 100vh;
+        }
+
+        .container {
+            width: 100%; max-width: 500px; display: flex; flex-direction: column;
+            border-left: 1px solid #222; border-right: 1px solid #222; background: var(--panel);
+        }
+
+        header {
+            padding: 20px; background: #000; border-bottom: 1px solid var(--accent);
+            display: flex; justify-content: space-between; align-items: center;
+        }
+
+        #nick-display { color: var(--accent); font-weight: bold; cursor: pointer; border-bottom: 1px dashed; }
+
+        #chat-window {
+            flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 10px;
+        }
+
+        .msg {
+            max-width: 80%; padding: 10px 15px; border-radius: 15px;
+            font-size: 0.95rem; line-height: 1.4; animation: pop 0.2s ease-out;
+        }
+
+        @keyframes pop { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+        .msg.mine { align-self: flex-end; background: var(--accent); color: #000; border-bottom-right-radius: 2px; }
+        .msg.other { align-self: flex-start; background: #2a2a2e; border-bottom-left-radius: 2px; }
+
+        .msg img { max-width: 100%; border-radius: 10px; margin-top: 8px; display: block; }
+        .sender-name { font-size: 0.7rem; opacity: 0.6; margin-bottom: 4px; display: block; }
+
+        footer { padding: 15px; background: #000; display: flex; gap: 10px; align-items: center; }
+
+        input[type="text"] {
+            flex: 1; background: #1a1a1a; border: 1px solid #333; padding: 12px 18px;
+            color: white; border-radius: 25px; outline: none; transition: 0.3s;
+        }
+
+        input[type="text"]:focus { border-color: var(--accent); }
+
+        .btn { background: none; border: none; cursor: pointer; color: var(--accent); font-size: 1.5rem; transition: 0.2s; }
+        .btn:hover { transform: scale(1.1); }
+        #file-input { display: none; }
+
+        .send-btn { background: var(--accent); color: #000; width: 42px; height: 42px; border-radius: 50%; font-size: 1rem; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <div style="letter-spacing: 2px; font-weight: 900;">VIBE <span style="font-weight: 300; font-size: 0.8rem;">P2P</span></div>
+        <div id="nick-display" onclick="changeNick()">Загрузка...</div>
+    </header>
+
+    <div id="chat-window"></div>
+
+    <footer>
+        <label class="btn">
+            + <input type="file" id="file-input" accept="image/*">
+        </label>
+        <input type="text" id="msg-input" placeholder="Напиши что-нибудь..." autocomplete="off">
+        <button class="btn send-btn" id="send-btn">></button>
+    </footer>
+</div>
+
+<script>
+    // Инициализация децентрализованной сети (используем несколько публичных узлов для надежности)
+    const gun = Gun([
+        'https://gun-manhattan.herokuapp.com/gun',
+        'https://relay.peer.ooo/gun'
+    ]);
+    const chatData = gun.get('vibe_global_v5'); // Комната чата
+
+    // Генерация ника
+    const names = ["Cyber", "Neon", "Ghost", "Void", "Pixel", "Dark", "User"];
+    let myNick = localStorage.getItem('vibe_nick') || names[Math.floor(Math.random()*names.length)] + "_" + Math.floor(Math.random()*999);
+    document.getElementById('nick-display').innerText = myNick;
+
+    function changeNick() {
+        let n = prompt("Твой новый ник:", myNick);
+        if(n) { myNick = n; localStorage.setItem('vibe_nick', n); document.getElementById('nick-display').innerText = n; }
+    }
+
+    // Функция отправки
+    function send(content, type = 'text') {
+        chatData.set({
+            who: myNick,
+            body: content,
+            type: type,
+            when: Date.now()
+        });
+    }
+
+    document.getElementById('send-btn').onclick = () => {
+        const input = document.getElementById('msg-input');
+        if(input.value.trim()) { send(input.value); input.value = ''; }
+    };
+
+    // Работа с фото
+    document.getElementById('file-input').onchange = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = (evt) => {
+                const img = new Image();
+                img.src = evt.target.result;
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    const maxW = 400; // Сжимаем для скорости P2P
+                    const scale = maxW / img.width;
+                    canvas.width = maxW; canvas.height = img.height * scale;
+                    canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+                    send(canvas.toDataURL('image/jpeg', 0.5), 'image');
+                };
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
+    // Получение сообщений
+    const chatWindow = document.getElementById('chat-window');
+    chatData.map().once((data, id) => {
+        if (!data || !data.body) return;
+
+        const div = document.createElement('div');
+        div.className = `msg ${data.who === myNick ? 'mine' : 'other'}`;
+        
+        const content = data.type === 'text' 
+            ? `<div>${data.body}</div>` 
+            : `<img src="${data.body}">`;
+
+        div.innerHTML = `<span class="sender-name">${data.who}</span>${content}`;
+        chatWindow.appendChild(div);
+        chatWindow.scrollTop = chatWindow.scrollHeight;
+    });
+
+    // Отправка по Enter
+    document.getElementById('msg-input').onkeypress = (e) => { if(e.key === 'Enter') document.getElementById('send-btn').click(); };
+</script>
+
+</body>
+</html>
