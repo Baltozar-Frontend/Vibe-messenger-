@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VIBE // ACCESS DENIED</title>
+    <style>
+        body {
+            background: #000; color: #fff; font-family: sans-serif;
+            display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0;
+        }
+        .lock-card {
+            text-align: center; width: 90%; max-width: 300px;
+        }
+        h1 { font-size: 24px; letter-spacing: 5px; color: #007aff; margin-bottom: 30px; }
+        input {
+            width: 100%; padding: 15px; background: #1c1c1e; border: 1px solid #333;
+            border-radius: 12px; color: white; font-size: 18px; text-align: center;
+            outline: none; margin-bottom: 15px;
+        }
+        input:focus { border-color: #007aff; }
+        button {
+            width: 100%; padding: 15px; background: #007aff; border: none;
+            border-radius: 12px; color: white; font-weight: bold; cursor: pointer;
+        }
+        .error { color: #ff3b30; font-size: 12px; margin-top: 10px; display: none; }
+    </style>
+</head>
+<body>
+
+<div class="lock-card">
+    <h1>VIBE SYSTEM</h1>
+    <input type="password" id="pass" placeholder="ENTER PASSWORD">
+    <button onclick="check()">UNLOCK</button>
+    <div id="err" class="error">НЕВЕРНЫЙ ПАРОЛЬ</div>
+</div>
+
+<script>
+    function check() {
+        const p = document.getElementById('pass').value;
+        const SECRET = "1234"; // ТВОЙ ПАРОЛЬ ЗДЕСЬ
+
+        if (p === SECRET) {
+            // Создаем ключ доступа
+            sessionStorage.setItem('vibe_access_granted', 'true');
+            // Переходим в чат
+            window.location.href = 'chat.html'; 
+        } else {
+            document.getElementById('err').style.display = 'block';
+            document.getElementById('pass').value = '';
+        }
+    }
+    
+    // Позволяет нажать Enter для входа
+    document.getElementById('pass').onkeypress = (e) => { if(e.key === 'Enter') check(); };
+</script>
+
+</body>
+</html>
