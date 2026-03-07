@@ -3,60 +3,81 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>VIBE VISION</title>
+    <title>VIBE TITAN</title>
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
     <style>
         :root {
-            --bg: #000; --glass: rgba(20, 20, 22, 0.85);
+            --bg: #000000; --glass: rgba(28, 28, 30, 0.85);
             --accent: #0a84ff; --danger: #ff453a; --success: #32d74b;
-            --text: #fff; --muted: #8e8e93;
+            --text: #ffffff; --muted: #8e8e93; --msg-bg: #1c1c1e;
+            --check-sent: #8e8e93; --check-read: #0a84ff;
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, system-ui, sans-serif; -webkit-tap-highlight-color: transparent; }
         body { background: var(--bg); color: var(--text); height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
 
+        /* СКРОЛЛБАРЫ */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-thumb { background: #333; border-radius: 10px; }
+
         /* --- ГЛАВНЫЙ ЭКРАН --- */
-        #app { flex: 1; display: flex; flex-direction: column; transition: 0.3s; }
-        header { padding: 50px 20px 20px; background: #111; border-bottom: 1px solid #222; }
-        .my-name { font-size: 32px; font-weight: 800; color: var(--text); cursor: pointer; text-decoration: underline; text-decoration-color: var(--muted); }
-        #contact-list { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 12px; }
-        .user-card { background: var(--glass); padding: 15px; border-radius: 16px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #333; }
-        .c-info b { font-size: 18px; } .c-info span { font-size: 12px; color: var(--success); display: block; margin-top: 4px; }
-        .c-btn { background: var(--accent); color: #fff; border: none; padding: 8px 16px; border-radius: 16px; font-weight: bold; cursor: pointer; }
+        #app { flex: 1; display: flex; flex-direction: column; transition: transform 0.3s cubic-bezier(0.25, 1, 0.5, 1); }
+        header { padding: 50px 20px 20px; background: #0a0a0c; border-bottom: 1px solid #1c1c1e; position: relative; }
+        .my-profile-wrap { display: flex; align-items: center; gap: 15px; }
+        /* Контейнер для будущего 3D аватара */
+        .avatar-3d-container { width: 50px; height: 50px; background: #1c1c1e; border-radius: 50%; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1px solid #333; }
+        .my-name { font-size: 28px; font-weight: 800; cursor: pointer; }
+        .status-dot { width: 10px; height: 10px; background: var(--success); border-radius: 50%; box-shadow: 0 0 8px var(--success); }
+
+        #contact-list { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 10px; }
+        .user-card { background: var(--glass); padding: 15px; border-radius: 18px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #222; transition: 0.2s; }
+        .user-card:active { transform: scale(0.98); }
+        .c-info b { font-size: 17px; display: block; margin-bottom: 4px; }
+        .c-info span { font-size: 13px; color: var(--muted); }
+        .c-btn { background: var(--accent); color: #fff; border: none; padding: 8px 18px; border-radius: 14px; font-weight: 600; cursor: pointer; }
+        .unread-badge { background: var(--danger); color: white; font-size: 12px; font-weight: bold; padding: 2px 8px; border-radius: 10px; margin-left: 10px; display: none; }
 
         /* --- ОКНО ЧАТА --- */
-        #chat-window { position: fixed; inset: 0; background: var(--bg); z-index: 500; display: none; flex-direction: column; transform: translateX(100%); transition: 0.3s; }
+        #chat-window { position: fixed; inset: 0; background: var(--bg); z-index: 500; display: none; flex-direction: column; transform: translateX(100%); transition: transform 0.3s cubic-bezier(0.25, 1, 0.5, 1); }
         #chat-window.active { display: flex; transform: translateX(0); }
-        .chat-head { padding: 45px 15px 15px; background: var(--glass); display: flex; align-items: center; gap: 15px; border-bottom: 1px solid #333; backdrop-filter: blur(10px); }
-        .back-link { font-size: 28px; color: var(--accent); cursor: pointer; padding-right: 10px; }
-        .call-btn { background: var(--success); width: 40px; height: 40px; border-radius: 50%; border: none; font-size: 18px; cursor: pointer; }
+        .chat-head { padding: 45px 15px 15px; background: rgba(15, 15, 15, 0.95); display: flex; align-items: center; gap: 15px; border-bottom: 1px solid #222; backdrop-filter: blur(10px); z-index: 10; }
+        .back-link { font-size: 28px; color: var(--accent); cursor: pointer; padding: 0 10px; font-weight: 300; }
+        .call-btn { background: var(--msg-bg); color: var(--success); width: 44px; height: 44px; border-radius: 50%; border: none; font-size: 20px; cursor: pointer; }
 
-        #messages { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 10px; }
-        .msg { max-width: 75%; padding: 10px 14px; border-radius: 18px; font-size: 15px; line-height: 1.4; position: relative; user-select: none; }
-        .msg.mine { align-self: flex-end; background: var(--accent); border-bottom-right-radius: 4px; }
-        .msg.other { align-self: flex-start; background: #2c2c2e; border-bottom-left-radius: 4px; }
-        .msg img { max-width: 100%; border-radius: 10px; margin-top: 5px; }
-        .msg audio { max-width: 200px; height: 35px; margin-top: 5px; }
-        .m-time { font-size: 10px; opacity: 0.6; display: block; margin-top: 4px; text-align: right; }
+        #messages { flex: 1; overflow-y: auto; padding: 20px 15px; display: flex; flex-direction: column; gap: 8px; }
+        
+        /* ПУЗЫРЬКИ СООБЩЕНИЙ */
+        .msg { max-width: 80%; padding: 10px 14px; border-radius: 20px; font-size: 16px; line-height: 1.4; position: relative; word-wrap: break-word; }
+        .msg.mine { align-self: flex-end; background: var(--accent); border-bottom-right-radius: 4px; color: white; }
+        .msg.other { align-self: flex-start; background: var(--msg-bg); border-bottom-left-radius: 4px; color: white; }
+        .msg img { max-width: 100%; border-radius: 12px; margin-top: 5px; display: block; }
+        .msg audio { max-width: 200px; height: 35px; margin-top: 5px; outline: none; }
+        
+        /* ИНФО О СООБЩЕНИИ (ВРЕМЯ + ГАЛОЧКИ) */
+        .msg-meta { display: flex; align-items: center; justify-content: flex-end; gap: 4px; margin-top: 4px; font-size: 11px; opacity: 0.8; }
+        .ticks { font-weight: bold; font-size: 12px; letter-spacing: -2px; }
+        .tick-sent { color: var(--check-sent); } /* ✓ */
+        .tick-delivered { color: var(--check-sent); } /* ✓✓ серые */
+        .tick-read { color: #fff; text-shadow: 0 0 5px rgba(255,255,255,0.5); } /* ✓✓ белые/светящиеся на синем фоне */
 
-        /* ВВОД & ПЕЧАТАЕТ */
-        .typing-ind { font-size: 12px; color: var(--accent); padding: 0 15px; height: 15px; font-style: italic; opacity: 0; transition: 0.2s; }
+        /* ВВОД */
+        .typing-ind { font-size: 13px; color: var(--accent); padding: 5px 20px; height: 25px; font-weight: 500; opacity: 0; transition: 0.2s; }
         .typing-ind.show { opacity: 1; }
-        .input-area { padding: 10px 15px 25px; background: #1c1c1e; display: flex; gap: 10px; align-items: center; }
-        .msg-input { flex: 1; background: #000; border: 1px solid #333; color: #fff; padding: 12px 16px; border-radius: 20px; outline: none; font-size: 16px; }
-        .action-btn { background: none; border: none; color: var(--accent); font-size: 24px; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 50%; }
-        .record-btn { background: var(--danger); color: white; }
+        .input-area { padding: 10px 15px 25px; background: #0a0a0c; display: flex; gap: 8px; align-items: flex-end; border-top: 1px solid #1c1c1e; }
+        .msg-input { flex: 1; background: #1c1c1e; border: 1px solid #2c2c2e; color: #fff; padding: 14px 18px; border-radius: 24px; outline: none; font-size: 16px; max-height: 100px; resize: none; overflow-y: auto; }
+        .action-btn { background: var(--msg-bg); border: none; color: var(--accent); cursor: pointer; display: flex; align-items: center; justify-content: center; width: 46px; height: 46px; border-radius: 50%; font-size: 20px; transition: 0.2s; flex-shrink: 0; }
+        .action-btn:active { transform: scale(0.9); }
+        .record-btn { background: var(--danger); color: white; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(255, 69, 58, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(255, 69, 58, 0); } 100% { box-shadow: 0 0 0 0 rgba(255, 69, 58, 0); } }
 
-        /* --- ЭКРАН ВИДЕОЗВОНКА --- */
+        /* ЭКРАН ЗВОНКА (из v9) */
         #call-screen { position: fixed; inset: 0; background: #000; z-index: 1000; display: none; flex-direction: column; }
         #remote-video { width: 100%; height: 100%; object-fit: cover; position: absolute; z-index: 1; }
         #local-video { width: 100px; height: 150px; object-fit: cover; position: absolute; bottom: 120px; right: 20px; z-index: 2; border-radius: 12px; border: 2px solid #333; background: #222; }
-        .call-ui { position: absolute; inset: 0; z-index: 3; display: flex; flex-direction: column; justify-content: space-between; padding: 50px 20px 40px; pointer-events: none; background: linear-gradient(to bottom, rgba(0,0,0,0.8) 0%, transparent 20%, transparent 80%, rgba(0,0,0,0.8) 100%); }
+        .call-ui { position: absolute; inset: 0; z-index: 3; display: flex; flex-direction: column; justify-content: space-between; padding: 60px 20px 50px; pointer-events: none; background: linear-gradient(to bottom, rgba(0,0,0,0.8) 0%, transparent 20%, transparent 80%, rgba(0,0,0,0.9) 100%); }
         .call-info { text-align: center; pointer-events: auto; }
-        .call-name { font-size: 28px; font-weight: bold; }
-        .call-status { font-size: 16px; color: var(--muted); margin-top: 5px; }
-        .call-controls { display: flex; justify-content: center; gap: 30px; pointer-events: auto; }
-        .btn-call { width: 70px; height: 70px; border-radius: 50%; border: none; font-size: 28px; color: white; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+        .call-controls { display: flex; justify-content: center; gap: 40px; pointer-events: auto; }
+        .btn-call { width: 75px; height: 75px; border-radius: 50%; border: none; font-size: 32px; color: white; cursor: pointer; }
         .btn-end { background: var(--danger); } .btn-accept { background: var(--success); display: none; }
     </style>
 </head>
@@ -64,17 +85,28 @@
 
 <div id="app">
     <header>
-        <div style="font-size: 12px; color: var(--muted); margin-bottom: 5px;">ВАШ ПРОФИЛЬ</div>
-        <div class="my-name" onclick="changeName()" id="ui-my-name">User</div>
+        <div style="font-size: 11px; color: var(--muted); margin-bottom: 8px; letter-spacing: 1px;">VIBE TITAN ENGINE</div>
+        <div class="my-profile-wrap">
+            <div class="avatar-3d-container" id="my-avatar">
+                <span style="font-size:24px">👤</span>
+            </div>
+            <div>
+                <div class="my-name" onclick="changeName()" id="ui-my-name">User</div>
+                <div style="display:flex; align-items:center; gap:5px; margin-top:4px;">
+                    <div class="status-dot"></div><span style="font-size:12px; color:var(--success);">Система онлайн</span>
+                </div>
+            </div>
+        </div>
     </header>
-    <div id="contact-list"><div style="text-align:center; padding: 40px; color: #888;">Поиск сети...</div></div>
+    <div id="contact-list"><div style="text-align:center; padding: 40px; color: #555;">Синхронизация радара...</div></div>
 </div>
 
 <div id="chat-window">
     <div class="chat-head">
         <div class="back-link" onclick="closeChat()">‹</div>
         <div style="flex:1;">
-            <b id="partner-nick" style="font-size: 18px;">Имя</b>
+            <b id="partner-nick" style="font-size: 19px;">Имя</b>
+            <div id="partner-status" style="font-size: 12px; color: var(--success);">В сети</div>
         </div>
         <button class="call-btn" onclick="startCall()">📹</button>
     </div>
@@ -82,9 +114,9 @@
     <div class="typing-ind" id="typing-ui">печатает...</div>
     <div class="input-area">
         <label class="action-btn" style="color: var(--muted);">+<input type="file" id="img-up" accept="image/*" style="display:none"></label>
-        <input type="text" id="main-input" class="msg-input" placeholder="Сообщение" oninput="handleTyping()">
+        <textarea id="main-input" class="msg-input" placeholder="Сообщение..." rows="1" oninput="handleTyping()"></textarea>
         <button class="action-btn" id="mic-btn" style="color:var(--muted)">🎤</button>
-        <button class="action-btn" onclick="sendVibe('text')">➤</button>
+        <button class="action-btn" onclick="sendVibe('text')" style="background: var(--accent); color: white;">➤</button>
     </div>
 </div>
 
@@ -93,8 +125,8 @@
     <video id="local-video" autoplay playsinline muted></video>
     <div class="call-ui">
         <div class="call-info">
-            <div class="call-name" id="call-name">Имя</div>
-            <div class="call-status" id="call-status">Входящий звонок...</div>
+            <div id="call-name" style="font-size: 32px; font-weight: bold;">Имя</div>
+            <div id="call-status" style="font-size: 16px; color: var(--muted); margin-top: 10px;">Входящий вызов...</div>
         </div>
         <div class="call-controls">
             <button class="btn-call btn-end" onclick="endCall()">☎</button>
@@ -104,139 +136,283 @@
 </div>
 
 <script>
+    // 1. ПРОВЕРКА БЕЗОПАСНОСТИ
     if (sessionStorage.getItem('vibe_access_granted') !== 'true') window.location.replace('index.html');
 
+    // 2. ЯДРО TITAN
     const BROKER = 'wss://broker.emqx.io:8084/mqtt';
-    const GLOBAL_TOPIC = 'vibe_v9_radar';
+    const GLOBAL_TOPIC = 'vibe_v10_titan_radar';
+    const 3D_ASSET_PATH = 'assets/Glolves.glb'; // Зарезервировано для 3D графики аватара
     
+    // Генерируем ID только один раз, чтобы не плодить клонов
     let my = {
-        id: localStorage.getItem('vibe_v9_id') || 'u_' + Math.random().toString(36).substr(2, 9),
-        nick: localStorage.getItem('vibe_v9_nick') || 'User_' + Math.floor(Math.random()*99),
+        id: localStorage.getItem('vibe_v10_id') || 'u_' + Math.random().toString(36).substr(2, 10),
+        nick: localStorage.getItem('vibe_v10_nick') || 'User_' + Math.floor(Math.random()*999),
     };
-    localStorage.setItem('vibe_v9_id', my.id);
+    localStorage.setItem('vibe_v10_id', my.id);
     document.getElementById('ui-my-name').innerText = my.nick;
 
-    let client, activeChat = null, users = new Map(), typingTimer;
-    let db = JSON.parse(localStorage.getItem('vibe_v9_db')) || {};
+    let client, activeChat = null, typingTimer;
+    // Map пользователей: { id: { nick, lastSeen, unread: 0 } }
+    let users = new Map();
+    // База данных: { partnerId: [ { mId, from, body, type, time, status } ] }
+    // status: 1 (sent), 2 (delivered), 3 (read)
+    let db = JSON.parse(localStorage.getItem('vibe_v10_db')) || {};
 
-    // WEBRTC Переменные
-    let localStream, peerConnection, currentCallPartner = null;
-    let iceQueue = []; // Очередь для защиты от рассинхрона
+    let mediaRecorder, audioChunks = [];
+    let localStream, peerConnection, currentCallPartner = null, iceQueue = [];
     const rtcConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
 
-    // ГОЛОСОВЫЕ Переменные
-    let mediaRecorder, audioChunks = [];
-
     function init() {
-        client = mqtt.connect(BROKER, { clientId: 'cl_' + my.id });
+        // Уникальный ClientID обязателен для QoS 1
+        const uniqueClientId = 'titan_' + my.id + '_' + Math.random().toString(16).substr(2, 4);
+        client = mqtt.connect(BROKER, { clientId: uniqueClientId, clean: true });
+        
         client.on('connect', () => {
-            client.subscribe([GLOBAL_TOPIC, `v_dir_${my.id}`]);
+            // Подписываемся на свой личный канал с QoS 1
+            client.subscribe([GLOBAL_TOPIC], { qos: 0 });
+            client.subscribe([`v_dir_${my.id}`], { qos: 1 }); 
             broadcast();
         });
 
         client.on('message', async (topic, payload) => {
             const data = JSON.parse(payload.toString());
+            
+            // Защита от эхо: игнорируем свои же пакеты в радаре
+            if (data.user && data.user.id === my.id) return;
+            if (data.from === my.id) return;
+
             if (topic === GLOBAL_TOPIC) {
-                if (data.type === 'HELLO') { users.set(data.user.id, { ...data.user, last: Date.now() }); client.publish(GLOBAL_TOPIC, JSON.stringify({ type: 'WELCOME', to: data.user.id, user: my })); renderUsers(); }
-                if (data.type === 'WELCOME' && data.to === my.id) { users.set(data.user.id, { ...data.user, last: Date.now() }); renderUsers(); }
+                if (data.type === 'HELLO') { 
+                    updateUser(data.user); 
+                    client.publish(GLOBAL_TOPIC, JSON.stringify({ type: 'WELCOME', to: data.user.id, user: my }), {qos: 0}); 
+                }
+                if (data.type === 'WELCOME' && data.to === my.id) { 
+                    updateUser(data.user); 
+                }
             } else {
                 handleDirect(data);
             }
         });
     }
 
-    function changeName() {
-        const n = prompt("Новое имя:", my.nick);
-        if (n && n.trim()) { my.nick = n.trim(); localStorage.setItem('vibe_v9_nick', my.nick); document.getElementById('ui-my-name').innerText = my.nick; broadcast(); }
+    function updateUser(u) {
+        if (!users.has(u.id)) {
+            users.set(u.id, { ...u, last: Date.now(), unread: 0 });
+        } else {
+            let existing = users.get(u.id);
+            existing.nick = u.nick;
+            existing.last = Date.now();
+        }
+        renderUsers();
     }
-    function broadcast() { client.publish(GLOBAL_TOPIC, JSON.stringify({ type: 'HELLO', user: my })); }
 
+    function changeName() {
+        const n = prompt("Изменить позывной:", my.nick);
+        if (n && n.trim()) { 
+            my.nick = n.trim(); 
+            localStorage.setItem('vibe_v10_nick', my.nick); 
+            document.getElementById('ui-my-name').innerText = my.nick; 
+            broadcast(); 
+        }
+    }
+    function broadcast() { client.publish(GLOBAL_TOPIC, JSON.stringify({ type: 'HELLO', user: my }), {qos: 0}); }
+
+    // --- ОБРАБОТЧИК ВХОДЯЩИХ (МАГИЯ ГАЛОЧЕК) ---
     async function handleDirect(msg) {
+        const pId = msg.from;
+
+        // 1. Получили новое текстовое или медиа сообщение
         if (['text', 'image', 'audio'].includes(msg.type)) {
-            save(msg.from, msg);
-            if (activeChat === msg.from) { document.getElementById('typing-ui').classList.remove('show'); loadMsgs(); }
+            if (!db[pId]) db[pId] = [];
+            // Защита от дублей
+            if (db[pId].find(m => m.mId === msg.mId)) return; 
+            
+            msg.status = 3; // Для нас оно изначально прочитано/получено
+            db[pId].push(msg);
+            saveDB();
+
+            // Отправляем системное подтверждение ДОСТАВКИ (2 серые галочки)
+            client.publish(`v_dir_${pId}`, JSON.stringify({ type: 'ACK', ackType: 'DELIVERED', mId: msg.mId, from: my.id }), {qos: 1});
+
+            if (activeChat === pId) {
+                // Если мы прямо сейчас в чате с ним — отправляем подтверждение ПРОЧТЕНИЯ (2 синие галочки)
+                client.publish(`v_dir_${pId}`, JSON.stringify({ type: 'ACK', ackType: 'READ', mId: msg.mId, from: my.id }), {qos: 1});
+                document.getElementById('typing-ui').classList.remove('show');
+                loadMsgs();
+            } else {
+                // Увеличиваем счетчик непрочитанных
+                let u = users.get(pId);
+                if (u) { u.unread = (u.unread || 0) + 1; renderUsers(); }
+            }
         } 
-        else if (msg.type === 'DELETE') {
-            if (db[msg.from]) {
-                db[msg.from] = db[msg.from].filter(m => m.mId !== msg.msgId);
-                localStorage.setItem('vibe_v9_db', JSON.stringify(db));
-                if (activeChat === msg.from) loadMsgs();
+        
+        // 2. Получили подтверждение от друга о наших отправленных сообщениях
+        else if (msg.type === 'ACK') {
+            if (db[pId]) {
+                let m = db[pId].find(x => x.mId === msg.mId);
+                if (m) {
+                    if (msg.ackType === 'DELIVERED' && m.status < 2) m.status = 2; // ✓✓ серые
+                    if (msg.ackType === 'READ') m.status = 3; // ✓✓ синие
+                    saveDB();
+                    if (activeChat === pId) loadMsgs(); // Обновляем галочки на экране
+                }
             }
         }
-        else if (msg.type === 'TYPING' && activeChat === msg.from) {
+
+        // 3. Удаление
+        else if (msg.type === 'DELETE') {
+            if (db[pId]) {
+                db[pId] = db[pId].filter(m => m.mId !== msg.msgId);
+                saveDB();
+                if (activeChat === pId) loadMsgs();
+            }
+        }
+
+        // 4. Печатает
+        else if (msg.type === 'TYPING' && activeChat === pId) {
             const ui = document.getElementById('typing-ui'); ui.classList.add('show');
             clearTimeout(typingTimer); typingTimer = setTimeout(() => ui.classList.remove('show'), 2000);
         }
-        // WebRTC Обработка с защитой
-        else if (msg.type === 'CALL_OFFER') { handleIncomingCall(msg); }
-        else if (msg.type === 'CALL_ANSWER') {
-            await peerConnection.setRemoteDescription(new RTCSessionDescription(msg.sdp));
-            processIceQueue();
-        }
+
+        // 5. Звонки (Защищенная WebRTC логика)
+        else if (msg.type === 'CALL_OFFER') handleIncomingCall(msg);
+        else if (msg.type === 'CALL_ANSWER') { await peerConnection.setRemoteDescription(new RTCSessionDescription(msg.sdp)); processIceQueue(); }
         else if (msg.type === 'CALL_ICE') {
-            if (peerConnection && peerConnection.remoteDescription) {
-                peerConnection.addIceCandidate(new RTCIceCandidate(msg.candidate));
-            } else {
-                iceQueue.push(msg.candidate); // Ждем, пока установится RemoteDescription
-            }
+            if (peerConnection && peerConnection.remoteDescription) peerConnection.addIceCandidate(new RTCIceCandidate(msg.candidate));
+            else iceQueue.push(msg.candidate);
         }
-        else if (msg.type === 'CALL_END') { closeCallUI(); }
+        else if (msg.type === 'CALL_END') closeCallUI();
     }
 
-    // --- ЧАТ ---
-    function handleTyping() { if (activeChat) client.publish(`v_dir_${activeChat}`, JSON.stringify({ type: 'TYPING', from: my.id })); }
-
+    // --- ОТПРАВКА СООБЩЕНИЙ ---
     function sendVibe(type = 'text', content = null) {
-        const txt = content || document.getElementById('main-input').value.trim();
+        const inp = document.getElementById('main-input');
+        const txt = content || inp.value.trim();
         if (!txt || !activeChat) return;
-        const packet = { mId: Math.random().toString(36).substr(2,9), from: my.id, nick: my.nick, body: txt, type: type, time: new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) };
+
+        const packet = { 
+            mId: 'm_' + Date.now() + Math.random().toString(36).substr(2,5), 
+            from: my.id, nick: my.nick, body: txt, type: type, 
+            time: new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}),
+            status: 1 // 1 галочка (Отправлено)
+        };
+        
+        if (!db[activeChat]) db[activeChat] = [];
+        db[activeChat].push(packet);
+        saveDB();
+
+        // Отправляем с QoS 1 (гарантия доставки до сервера)
         client.publish(`v_dir_${activeChat}`, JSON.stringify(packet), { qos: 1 });
-        save(activeChat, packet);
-        if (type === 'text') document.getElementById('main-input').value = '';
+        
+        if (type === 'text') { inp.value = ''; inp.style.height = 'auto'; }
         loadMsgs();
+        scrollBottom();
     }
 
     function deleteMsg(msgId, partnerId) {
-        if(!confirm("Удалить сообщение у всех?")) return;
-        client.publish(`v_dir_${partnerId}`, JSON.stringify({ type: 'DELETE', from: my.id, msgId: msgId }));
+        if(!confirm("Удалить у всех?")) return;
+        client.publish(`v_dir_${partnerId}`, JSON.stringify({ type: 'DELETE', from: my.id, msgId: msgId }), {qos: 1});
         db[partnerId] = db[partnerId].filter(m => m.mId !== msgId);
-        localStorage.setItem('vibe_v9_db', JSON.stringify(db));
-        loadMsgs();
+        saveDB(); loadMsgs();
     }
 
+    function saveDB() { localStorage.setItem('vibe_v10_db', JSON.stringify(db)); }
+
+    // --- ИНТЕРФЕЙС И РЕНДЕР ---
     function renderUsers() {
         const list = document.getElementById('contact-list'); list.innerHTML = '';
+        if (users.size === 0) { list.innerHTML = '<div style="text-align:center; padding: 40px; color: #555;">Радар пуст</div>'; return; }
+        
         users.forEach((u, id) => {
-            if (id === my.id) return;
-            list.innerHTML += `<div class="user-card"><div class="c-info"><b>${u.nick}</b><span>В сети</span></div><button class="c-btn" onclick="openChat('${id}')">ЧАТ</button></div>`;
+            const isOnline = (Date.now() - u.last < 10000);
+            const statusColor = isOnline ? 'var(--success)' : '#555';
+            const statusText = isOnline ? 'В сети' : 'Недавно';
+            const unreadHTML = u.unread > 0 ? `<div class="unread-badge" style="display:block">${u.unread}</div>` : '';
+
+            list.innerHTML += `
+                <div class="user-card" onclick="openChat('${id}')">
+                    <div class="c-info">
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <b>${u.nick}</b> ${unreadHTML}
+                        </div>
+                        <span style="color: ${statusColor}">● ${statusText}</span>
+                    </div>
+                </div>`;
         });
     }
 
     function openChat(id) {
-        activeChat = id; document.getElementById('partner-nick').innerText = users.get(id).nick;
-        document.getElementById('chat-window').classList.add('active'); loadMsgs();
+        activeChat = id; 
+        const u = users.get(id);
+        document.getElementById('partner-nick').innerText = u ? u.nick : 'Неизвестный';
+        document.getElementById('partner-status').innerText = (u && Date.now() - u.last < 10000) ? 'В сети' : 'Офлайн';
+        
+        // Сбрасываем счетчик непрочитанных
+        if (u) { u.unread = 0; renderUsers(); }
+
+        // Отправляем пакет ACK_READ для всех недопрочитанных сообщений партнера
+        if (db[id]) {
+            db[id].forEach(m => {
+                if (m.from === id && m.status !== 3) {
+                    client.publish(`v_dir_${id}`, JSON.stringify({ type: 'ACK', ackType: 'READ', mId: m.mId, from: my.id }), {qos: 1});
+                    m.status = 3;
+                }
+            });
+            saveDB();
+        }
+
+        document.getElementById('chat-window').classList.add('active'); 
+        loadMsgs();
+        setTimeout(scrollBottom, 100);
     }
-    function closeChat() { document.getElementById('chat-window').classList.remove('active'); activeChat = null; }
     
-    function save(id, msg) { if (!db[id]) db[id] = []; db[id].push(msg); localStorage.setItem('vibe_v9_db', JSON.stringify(db)); }
+    function closeChat() { 
+        document.getElementById('chat-window').classList.remove('active'); 
+        activeChat = null; 
+    }
     
+    function getTicks(status) {
+        if (status === 1) return `<span class="ticks tick-sent">✓</span>`;
+        if (status === 2) return `<span class="ticks tick-delivered">✓✓</span>`;
+        if (status === 3) return `<span class="ticks tick-read">✓✓</span>`;
+        return '';
+    }
+
     function loadMsgs() {
         const box = document.getElementById('messages'); box.innerHTML = '';
         (db[activeChat] || []).forEach(m => {
             const isMine = m.from === my.id;
-            const onclickCode = isMine ? `ondblclick="deleteMsg('${m.mId}', '${activeChat}')"` : '';
+            const onclick = isMine ? `ondblclick="deleteMsg('${m.mId}', '${activeChat}')"` : '';
             const content = m.type === 'text' ? m.body : m.type === 'audio' ? `<audio controls src="${m.body}"></audio>` : `<img src="${m.body}">`;
-            box.innerHTML += `<div class="msg ${isMine ? 'mine' : 'other'}" ${onclickCode}>${content}<span class="m-time">${m.time}</span></div>`;
+            const ticks = isMine ? getTicks(m.status) : '';
+            
+            box.innerHTML += `
+                <div class="msg ${isMine ? 'mine' : 'other'}" ${onclick}>
+                    ${content}
+                    <div class="msg-meta">
+                        <span>${m.time}</span> ${ticks}
+                    </div>
+                </div>`;
         });
-        box.scrollTop = box.scrollHeight;
     }
 
-    document.getElementById('main-input').onkeypress = (e) => { if(e.key==='Enter') sendVibe('text'); };
+    function scrollBottom() { const b = document.getElementById('messages'); b.scrollTop = b.scrollHeight; }
 
-    // --- ФОТО И ГОЛОС ---
+    // Авто-расширение поля ввода
+    const tx = document.getElementById('main-input');
+    tx.setAttribute('style', 'height:' + (tx.scrollHeight) + 'px;overflow-y:hidden;');
+    tx.addEventListener("input", function() {
+        this.style.height = 'auto'; this.style.height = (this.scrollHeight) + 'px';
+    });
+    tx.onkeypress = (e) => { if(e.key==='Enter' && !e.shiftKey) { e.preventDefault(); sendVibe('text'); } };
+
+    function handleTyping() { if (activeChat) client.publish(`v_dir_${activeChat}`, JSON.stringify({ type: 'TYPING', from: my.id }), {qos:0}); }
+
+    // --- ФОТО И ГОЛОС (Медиа движок) ---
     document.getElementById('img-up').onchange = (e) => {
         const f = e.target.files[0]; const r = new FileReader();
-        r.onload = (ev) => { const img = new Image(); img.src = ev.target.result; img.onload = () => { const cvs = document.createElement('canvas'); const s = 400 / img.width; cvs.width = 400; cvs.height = img.height * s; cvs.getContext('2d').drawImage(img,0,0,400,cvs.height); sendVibe('image', cvs.toDataURL('image/jpeg', 0.5)); }; };
+        r.onload = (ev) => { const img = new Image(); img.src = ev.target.result; img.onload = () => { const cvs = document.createElement('canvas'); const s = 400 / img.width; cvs.width = 400; cvs.height = img.height * s; cvs.getContext('2d').drawImage(img,0,0,400,cvs.height); sendVibe('image', cvs.toDataURL('image/jpeg', 0.6)); }; };
         r.readAsDataURL(f);
     };
 
@@ -251,33 +427,28 @@
                 const blob = new Blob(audioChunks, { type: 'audio/webm' });
                 const reader = new FileReader();
                 reader.onloadend = () => sendVibe('audio', reader.result);
-                reader.readAsDataURL(blob);
-                audioChunks = [];
+                reader.readAsDataURL(blob); audioChunks = [];
             };
-            mediaRecorder.start();
-            micBtn.classList.add('record-btn');
-        } catch(e) { alert("Дайте разрешение на микрофон!"); }
+            mediaRecorder.start(); micBtn.classList.add('record-btn');
+        } catch(e) { alert("Включи доступ к микрофону!"); }
     };
     micBtn.onmouseup = micBtn.ontouchend = (e) => {
         e.preventDefault();
         if(mediaRecorder && mediaRecorder.state === "recording") { mediaRecorder.stop(); mediaRecorder.stream.getTracks().forEach(t=>t.stop()); micBtn.classList.remove('record-btn'); }
     };
 
-    // --- ЗВОНКИ (WebRTC + Видео + Очередь) ---
+    // --- ВИДЕОЗВОНКИ WebRTC ---
     async function startCall() {
         if (!activeChat) return;
-        currentCallPartner = activeChat;
-        showCallUI('Звоним...', users.get(activeChat).nick, false);
-
+        currentCallPartner = activeChat; showCallUI('Вызов...', users.get(activeChat)?.nick || 'Неизвестный', false);
         try {
             localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
             document.getElementById('local-video').srcObject = localStream;
             createPeerConnection();
             localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
-
             const offer = await peerConnection.createOffer();
             await peerConnection.setLocalDescription(offer);
-            client.publish(`v_dir_${currentCallPartner}`, JSON.stringify({ type: 'CALL_OFFER', from: my.id, nick: my.nick, sdp: offer }));
+            client.publish(`v_dir_${currentCallPartner}`, JSON.stringify({ type: 'CALL_OFFER', from: my.id, nick: my.nick, sdp: offer }), {qos: 1});
         } catch (err) { alert('Нет камеры или микрофона!'); closeCallUI(); }
     }
 
@@ -288,61 +459,45 @@
     }
 
     async function acceptCall() {
-        document.getElementById('btn-accept-call').style.display = 'none';
-        document.getElementById('call-status').innerText = 'Соединение...';
-
+        document.getElementById('btn-accept-call').style.display = 'none'; document.getElementById('call-status').innerText = 'Установка P2P...';
         try {
             localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
             document.getElementById('local-video').srcObject = localStream;
             createPeerConnection();
             localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
-
             await peerConnection.setRemoteDescription(new RTCSessionDescription(incomingOffer));
             const answer = await peerConnection.createAnswer();
             await peerConnection.setLocalDescription(answer);
-
-            client.publish(`v_dir_${currentCallPartner}`, JSON.stringify({ type: 'CALL_ANSWER', from: my.id, sdp: answer }));
-            document.getElementById('call-status').innerText = 'На линии';
-        } catch (err) { alert('Ошибка доступа к камере!'); endCall(); }
+            client.publish(`v_dir_${currentCallPartner}`, JSON.stringify({ type: 'CALL_ANSWER', from: my.id, sdp: answer }), {qos: 1});
+            document.getElementById('call-status').innerText = 'Зашифровано';
+        } catch (err) { alert('Ошибка доступа!'); endCall(); }
     }
 
     function createPeerConnection() {
-        peerConnection = new RTCPeerConnection(rtcConfig);
-        iceQueue = [];
-
-        peerConnection.onicecandidate = (event) => {
-            if (event.candidate) client.publish(`v_dir_${currentCallPartner}`, JSON.stringify({ type: 'CALL_ICE', from: my.id, candidate: event.candidate }));
-        };
-
-        peerConnection.ontrack = (event) => {
-            document.getElementById('remote-video').srcObject = event.streams[0];
-            document.getElementById('call-status').innerText = ''; // Скрываем текст
-        };
+        peerConnection = new RTCPeerConnection(rtcConfig); iceQueue = [];
+        peerConnection.onicecandidate = (event) => { if (event.candidate) client.publish(`v_dir_${currentCallPartner}`, JSON.stringify({ type: 'CALL_ICE', from: my.id, candidate: event.candidate }), {qos: 0}); };
+        peerConnection.ontrack = (event) => { document.getElementById('remote-video').srcObject = event.streams[0]; document.getElementById('call-status').innerText = ''; };
     }
-
-    function processIceQueue() {
-        while (iceQueue.length > 0) { peerConnection.addIceCandidate(new RTCIceCandidate(iceQueue.shift())); }
-    }
+    function processIceQueue() { while (iceQueue.length > 0) peerConnection.addIceCandidate(new RTCIceCandidate(iceQueue.shift())); }
 
     function endCall() {
-        if (currentCallPartner) client.publish(`v_dir_${currentCallPartner}`, JSON.stringify({ type: 'CALL_END', from: my.id }));
+        if (currentCallPartner) client.publish(`v_dir_${currentCallPartner}`, JSON.stringify({ type: 'CALL_END', from: my.id }), {qos: 1});
         closeCallUI();
     }
-
     function closeCallUI() {
         document.getElementById('call-screen').style.display = 'none';
         if (peerConnection) { peerConnection.close(); peerConnection = null; }
         if (localStream) { localStream.getTracks().forEach(t => t.stop()); localStream = null; }
         currentCallPartner = null; incomingOffer = null;
     }
-
     function showCallUI(status, name, showAccept) {
         document.getElementById('call-screen').style.display = 'flex';
         document.getElementById('call-status').innerText = status; document.getElementById('call-name').innerText = name;
-        document.getElementById('btn-accept-call').style.display = showAccept ? 'flex' : 'none';
+        document.getElementById('btn-accept-call').style.display = showAccept ? 'block' : 'none';
     }
 
-    setInterval(() => { let changed = false; users.forEach((u, id) => { if (Date.now() - u.last > 8000) { users.delete(id); changed = true; } }); if (changed) renderUsers(); }, 5000);
+    // Очистка мертвых душ
+    setInterval(() => { let changed = false; users.forEach((u, id) => { if (Date.now() - u.last > 12000) { users.delete(id); changed = true; } }); if (changed) renderUsers(); }, 5000);
 
     init();
 </script>
