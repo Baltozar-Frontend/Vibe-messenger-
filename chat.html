@@ -3,282 +3,478 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>VIBE OVERKILL</title>
+    <title>VIBE APOCALYPSE v13</title>
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
     <style>
         :root {
-            --bg: #000; --accent: #3390ec; --success: #34c759;
-            --text: #fff; --muted: #8e8e93; --msg-other: #212124;
+            --bg: #0b0b0c; --card: #161618; --accent: #248bf5; 
+            --success: #2ecc71; --error: #e74c3c; --text: #ffffff;
+            --muted: #727274; --mine: #2b5278; --other: #182533;
         }
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, sans-serif; -webkit-tap-highlight-color: transparent; }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
         body { background: var(--bg); color: var(--text); height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
 
         /* HEADER */
-        header { padding: 45px 20px 15px; background: #0f0f0f; border-bottom: 1px solid #222; display: flex; justify-content: space-between; align-items: center; }
-        .my-nick { font-size: 24px; font-weight: 800; color: var(--accent); cursor: pointer; }
+        header { padding: 45px 20px 15px; background: rgba(20, 20, 22, 0.95); backdrop-filter: blur(10px); border-bottom: 1px solid #222; display: flex; justify-content: space-between; align-items: center; z-index: 10; }
+        .logo-area { display: flex; flex-direction: column; }
+        .logo-area h1 { font-size: 22px; font-weight: 900; letter-spacing: -1px; color: var(--accent); }
+        .my-status { font-size: 11px; color: var(--success); font-weight: bold; text-transform: uppercase; margin-top: 2px; }
+        
+        #me-nick { background: none; border: none; color: white; font-size: 18px; font-weight: 600; cursor: pointer; outline: none; transition: 0.2s; }
+        #me-nick:hover { color: var(--accent); }
 
-        /* CONTACTS */
-        #contact-list { flex: 1; overflow-y: auto; padding: 10px; }
-        .user-card { background: #111; margin-bottom: 8px; padding: 15px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #1c1c1e; }
-        .badge { background: var(--accent); color: white; padding: 2px 8px; border-radius: 10px; font-size: 12px; display: none; }
+        /* RADAR / CONTACTS */
+        #contact-list { flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+        .user-card { background: var(--card); padding: 14px 18px; border-radius: 16px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; border: 1px solid #222; transition: all 0.2s; position: relative; overflow: hidden; }
+        .user-card:active { transform: scale(0.97); background: #1c1c1f; }
+        .user-card.online::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--success); }
+        .u-info b { font-size: 16px; display: block; margin-bottom: 2px; }
+        .u-info span { font-size: 12px; color: var(--muted); }
+        .unread-dot { background: var(--accent); color: white; min-width: 20px; height: 20px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold; padding: 0 6px; }
 
         /* CHAT WINDOW */
-        #chat-window { position: fixed; inset: 0; background: #000; z-index: 100; display: none; flex-direction: column; transform: translateX(100%); transition: 0.25s ease-out; }
+        #chat-window { position: fixed; inset: 0; background: var(--bg); z-index: 100; display: none; flex-direction: column; transform: translateX(100%); transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
         #chat-window.active { display: flex; transform: translateX(0); }
-        .chat-head { padding: 45px 15px 10px; background: #111; display: flex; align-items: center; gap: 15px; border-bottom: 1px solid #222; }
-        .back { font-size: 30px; color: var(--accent); cursor: pointer; }
+        .chat-head { padding: 45px 15px 12px; background: #161618; display: flex; align-items: center; gap: 15px; border-bottom: 1px solid #222; }
+        .back-btn { font-size: 32px; color: var(--accent); cursor: pointer; line-height: 1; padding-bottom: 4px; }
+        .partner-info b { font-size: 17px; display: block; }
+        .partner-info span { font-size: 12px; color: var(--success); }
         
-        #messages { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 8px; }
-        .msg { max-width: 80%; padding: 10px 14px; border-radius: 18px; font-size: 15px; position: relative; animation: fadeIn 0.2s; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+        #messages { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 6px; background: url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png'); background-attachment: fixed; }
         
-        .msg.mine { align-self: flex-end; background: var(--accent); border-bottom-right-radius: 4px; }
-        .msg.other { align-self: flex-start; background: var(--msg-other); border-bottom-left-radius: 4px; }
-        .msg-info { font-size: 10px; opacity: 0.7; margin-top: 4px; display: flex; justify-content: flex-end; gap: 4px; }
+        .msg-row { display: flex; width: 100%; margin-bottom: 2px; }
+        .msg { max-width: 75%; padding: 8px 12px; border-radius: 14px; font-size: 15px; position: relative; color: white; box-shadow: 0 1px 2px rgba(0,0,0,0.2); }
+        .msg.mine { background: var(--mine); margin-left: auto; border-bottom-right-radius: 4px; }
+        .msg.other { background: var(--other); border-bottom-left-radius: 4px; }
         
-        .msg img { max-width: 100%; border-radius: 10px; margin-top: 5px; }
-        .msg audio { max-width: 200px; height: 30px; margin-top: 5px; }
+        .msg-meta { display: flex; align-items: center; justify-content: flex-end; gap: 4px; margin-top: 3px; font-size: 10px; opacity: 0.6; }
+        .status-icon { font-size: 11px; letter-spacing: -3px; }
+        .status-pending { color: var(--muted); }
+        .status-sent { color: var(--text); }
+        .status-read { color: #4fc3f7; font-weight: bold; }
 
-        /* INPUT */
-        .input-area { padding: 10px 15px 30px; background: #0f0f0f; display: flex; gap: 10px; align-items: center; border-top: 1px solid #222; }
-        .msg-input { flex: 1; background: #1c1c1e; border: none; color: #fff; padding: 12px 15px; border-radius: 20px; outline: none; font-size: 16px; }
-        .btn { background: none; border: none; color: var(--accent); font-size: 24px; cursor: pointer; }
-        .btn-send { background: var(--accent); color: white; border-radius: 50%; width: 40px; height: 40px; font-size: 18px; display: flex; align-items: center; justify-content: center; }
+        .msg img { max-width: 100%; border-radius: 8px; margin-top: 5px; cursor: pointer; }
+        .msg audio { width: 210px; height: 35px; margin-top: 5px; filter: invert(1); }
 
-        /* CALLS */
-        #call-screen { position: fixed; inset: 0; background: #000; z-index: 200; display: none; flex-direction: column; }
-        #remote-video { width: 100%; height: 100%; object-fit: cover; }
-        #local-video { width: 90px; height: 130px; position: absolute; bottom: 100px; right: 20px; border-radius: 10px; background: #222; border: 1px solid #444; }
-        .call-ui { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: space-between; padding: 60px 20px 40px; text-align: center; pointer-events: none; }
-        .btn-group { display: flex; justify-content: center; gap: 40px; pointer-events: auto; }
-        .call-end { background: #ff3b30; width: 65px; height: 65px; border-radius: 50%; border: none; font-size: 30px; color: #fff; }
-        .call-accept { background: #34c759; width: 65px; height: 65px; border-radius: 50%; border: none; font-size: 30px; color: #fff; display: none; }
+        /* INPUT AREA */
+        .typing-label { font-size: 12px; color: var(--accent); padding: 2px 20px; height: 18px; font-style: italic; opacity: 0; transition: 0.2s; }
+        .typing-label.show { opacity: 1; }
+        .input-wrap { padding: 10px 15px 30px; background: #161618; display: flex; align-items: flex-end; gap: 10px; border-top: 1px solid #222; }
+        .attach-btn { font-size: 24px; color: var(--muted); cursor: pointer; padding-bottom: 5px; }
+        #main-input { flex: 1; background: #0b0b0c; border: 1px solid #333; color: white; padding: 11px 15px; border-radius: 22px; outline: none; font-size: 16px; max-height: 120px; resize: none; }
+        .send-trigger { width: 42px; height: 42px; border-radius: 50%; background: var(--accent); color: white; border: none; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s; flex-shrink: 0; }
+        .send-trigger:active { transform: scale(0.9); }
+        .mic-active { background: var(--error) !important; animation: pulse 1s infinite; }
+
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+
+        /* CALL UI */
+        #call-ui { position: fixed; inset: 0; background: #000; z-index: 1000; display: none; flex-direction: column; }
+        #video-remote { width: 100%; height: 100%; object-fit: cover; }
+        #video-local { width: 100px; height: 140px; position: absolute; top: 50px; right: 20px; border-radius: 12px; border: 2px solid #333; object-fit: cover; z-index: 10; }
+        .call-overlay { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: space-between; padding: 70px 20px 50px; background: linear-gradient(to bottom, rgba(0,0,0,0.6) 0%, transparent 40%, rgba(0,0,0,0.8) 100%); pointer-events: none; text-align: center; }
+        .call-btns { display: flex; justify-content: center; gap: 40px; pointer-events: auto; }
+        .c-btn { width: 70px; height: 70px; border-radius: 50%; border: none; font-size: 30px; color: white; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+        .c-hang { background: var(--error); }
+        .c-answer { background: var(--success); display: none; }
     </style>
 </head>
 <body>
 
 <div id="app">
     <header>
-        <div class="my-nick" onclick="changeNick()" id="me-nick">User</div>
-        <div style="font-size: 12px; color: var(--success);">● LIVE</div>
+        <div class="logo-area">
+            <h1>VIBE APOCALYPSE</h1>
+            <div class="my-status">Система активна</div>
+        </div>
+        <button id="me-nick" onclick="editNick()">User</button>
     </header>
-    <div id="contact-list"></div>
+    <div id="contact-list">
+        <div style="text-align: center; color: var(--muted); padding: 50px;">Поиск контактов...</div>
+    </div>
 </div>
 
 <div id="chat-window">
     <div class="chat-head">
-        <div class="back" onclick="closeChat()">‹</div>
-        <div style="flex:1"><b id="p-nick">Nick</b></div>
-        <div onclick="startCall()" style="font-size: 22px; cursor: pointer;">📞</div>
+        <div class="back-btn" onclick="closeChat()">‹</div>
+        <div class="partner-info" style="flex:1">
+            <b id="p-name">Partner</b>
+            <span id="p-status">онлайн</span>
+        </div>
+        <div onclick="initiateCall()" style="font-size: 24px; cursor: pointer; color: var(--accent);">📞</div>
     </div>
     <div id="messages"></div>
-    <div class="input-area">
-        <label class="btn">📎<input type="file" id="f-up" style="display:none"></label>
-        <input type="text" id="m-in" class="msg-input" placeholder="Сообщение...">
-        <button class="btn" id="m-btn">🎤</button>
-        <button class="btn-send" onclick="send('text')">➤</button>
+    <div class="typing-label" id="typing-box">печатает...</div>
+    <div class="input-wrap">
+        <label class="attach-btn">📎<input type="file" id="upload-img" accept="image/*" style="display:none"></label>
+        <textarea id="main-input" rows="1" placeholder="Сообщение..."></textarea>
+        <button class="send-trigger" id="action-btn">🎤</button>
     </div>
 </div>
 
-<div id="call-screen">
-    <video id="remote-video" autoplay playsinline></video>
-    <video id="local-video" autoplay playsinline muted></video>
-    <div class="call-ui">
+<div id="call-ui">
+    <video id="video-remote" autoplay playsinline></video>
+    <video id="video-local" autoplay playsinline muted></video>
+    <div class="call-overlay">
         <div>
-            <h1 id="c-name">Partner</h1>
-            <p id="c-status">Вызов...</p>
+            <h2 id="call-nick" style="font-size: 32px; font-weight: bold;">Nick</h2>
+            <p id="call-sub" style="margin-top: 10px; opacity: 0.8;">Защищенный вызов...</p>
         </div>
-        <div class="btn-group">
-            <button class="call-end" onclick="hang()">☎</button>
-            <button class="call-accept" id="c-acc" onclick="answer()">📞</button>
+        <div class="call-btns">
+            <button class="c-btn c-hang" onclick="hangup()">☎</button>
+            <button class="c-btn c-answer" id="call-accept-btn" onclick="answerCall()">📞</button>
         </div>
     </div>
 </div>
 
 <script>
-    // КОНФИГ
-    const MY_ID = localStorage.getItem('v12_id') || 'u' + Math.random().toString(36).substr(2, 7);
-    localStorage.setItem('v12_id', MY_ID);
-    let MY_NICK = localStorage.getItem('v12_nick') || 'User_' + Math.floor(Math.random()*99);
-    
-    const RADAR_TOPIC = 'v12_radar_secure_sys';
-    const DB_KEY = 'v12_db_store';
-    
-    let client, activeChat = null, users = new Map();
-    let db = JSON.parse(localStorage.getItem(DB_KEY)) || {};
-    let pc, localStream, currentCallId;
+    // --- ЯДРО СИСТЕМЫ ---
+    const CONFIG = {
+        broker: 'wss://broker.emqx.io:8084/mqtt',
+        radarTopic: 'v13_apocalypse_global_radar_v2',
+        prefix: 'v13/vault/',
+        myId: localStorage.getItem('v13_uid') || 'u_' + Math.random().toString(36).substr(2, 9),
+        nick: localStorage.getItem('v13_nick') || 'User_' + Math.floor(Math.random()*999)
+    };
+    localStorage.setItem('v13_uid', CONFIG.myId);
+    document.getElementById('me-nick').innerText = CONFIG.nick;
 
-    document.getElementById('me-nick').innerText = MY_NICK;
+    let client, activePartner = null, users = new Map();
+    let db = JSON.parse(localStorage.getItem('v13_db')) || {};
+    let retryQueue = new Map(); // Очередь для переотправки
 
     function init() {
-        client = mqtt.connect('wss://broker.emqx.io:8084/mqtt', { 
-            clientId: 'cl_' + MY_ID + '_' + Math.random().toString(16).substr(2,4),
-            clean: true,
-            connectTimeout: 4000
+        // Persistent session: clean = false + уникальный clientId
+        client = mqtt.connect(CONFIG.broker, { 
+            clientId: 'v13_client_' + CONFIG.myId,
+            clean: false,
+            reconnectPeriod: 1000
         });
 
         client.on('connect', () => {
-            client.subscribe(RADAR_TOPIC);
-            client.subscribe(`v12/to/${MY_ID}/#`); // Личные сообщения
+            console.log("Connected to Apocalypse Engine");
+            client.subscribe(CONFIG.radarTopic);
+            client.subscribe(CONFIG.prefix + CONFIG.myId + '/#', { qos: 1 });
+            
+            // Запуск радара (PING)
             setInterval(() => {
-                client.publish(RADAR_TOPIC, JSON.stringify({id: MY_ID, nick: MY_NICK, t: Date.now()}));
+                client.publish(CONFIG.radarTopic, JSON.stringify({id: CONFIG.myId, nick: CONFIG.nick, t: Date.now()}), {qos: 0});
             }, 2000);
         });
 
         client.on('message', (topic, payload) => {
             const data = JSON.parse(payload.toString());
-            if (topic === RADAR_TOPIC) {
-                if (data.id !== MY_ID) {
-                    users.set(data.id, {nick: data.nick, last: Date.now(), unread: users.get(data.id)?.unread || 0});
-                    renderUsers();
-                }
+            if (topic === CONFIG.radarTopic) {
+                if (data.id !== CONFIG.myId) handleRadar(data);
             } else {
-                handleIn(data);
+                handleIncoming(data);
             }
         });
+
+        // Движок переотправки: проверяет очередь каждые 3 сек
+        setInterval(() => {
+            retryQueue.forEach((pkg, mId) => {
+                console.warn("Retrying message:", mId);
+                client.publish(CONFIG.prefix + pkg.to + '/msg', JSON.stringify(pkg), {qos: 1});
+            });
+        }, 3000);
     }
 
-    function handleIn(msg) {
-        if (msg.type === 'msg') {
-            if (!db[msg.from]) db[msg.from] = [];
-            if (db[msg.from].some(m => m.mId === msg.mId)) return; // Дубли вон
-            
-            db[msg.from].push(msg);
-            save();
-            
-            // Подтверждаем получение сразу (ACK)
-            client.publish(`v12/to/${msg.from}/ack`, JSON.stringify({mId: msg.mId, to: MY_ID}), {qos: 1});
+    // --- ОБРАБОТКА ЛОГИКИ ---
+    function handleIncoming(data) {
+        const from = data.from;
 
-            if (activeChat === msg.from) loadMsgs();
-            else { users.get(msg.from).unread++; renderUsers(); }
+        // 1. Получение сообщения
+        if (data.type === 'msg') {
+            if (!db[from]) db[from] = [];
+            if (db[from].some(m => m.mId === data.mId)) return; // Игнор дублей
+
+            data.read = true;
+            db[from].push(data);
+            save();
+
+            // Мгновенный ACK (Подтверждение)
+            client.publish(CONFIG.prefix + from + '/ack', JSON.stringify({mId: data.mId, ackBy: CONFIG.myId}), {qos: 1});
+
+            if (activePartner === from) {
+                renderMsgs();
+                scroll();
+            } else {
+                let u = users.get(from);
+                if (u) { u.unread = (u.unread || 0) + 1; renderUsers(); }
+            }
         } 
-        else if (msg.type === 'ack') {
+        // 2. Получение ACK (сообщение доставлено/прочитано)
+        else if (data.type === 'ack') {
+            retryQueue.delete(data.mId); // Удаляем из очереди переотправки
             Object.values(db).forEach(chat => {
-                const m = chat.find(x => x.mId === msg.mId);
-                if (m) { m.ok = true; save(); if (activeChat) loadMsgs(); }
+                const m = chat.find(x => x.mId === data.mId);
+                if (m) { m.status = 'read'; save(); if (activePartner) renderMsgs(); }
             });
         }
-        else if (msg.type === 'offer') { currentCallId = msg.from; showCall(msg.nick, true); incoming = msg.sdp; }
-        else if (msg.type === 'answer') { pc.setRemoteDescription(new RTCSessionDescription(msg.sdp)); }
-        else if (msg.type === 'ice') { if(pc) pc.addIceCandidate(new RTCIceCandidate(msg.cand)); }
-        else if (msg.type === 'hang') { stopCall(); }
+        // 3. Остальное (Печать, Звонки)
+        else if (data.type === 'typing' && activePartner === from) showTyping();
+        else if (data.type === 'call_offer') handleCallOffer(data);
+        else if (data.type === 'call_answer') handleCallAnswer(data);
+        else if (data.type === 'call_ice') handleCallIce(data);
+        else if (data.type === 'call_hangup') finalizeCall();
     }
 
-    function send(type, body = null) {
-        const txt = body || document.getElementById('m-in').value.trim();
-        if (!txt || !activeChat) return;
-        
-        const mId = 'm' + Date.now();
-        const pkg = { mId, type: 'msg', from: MY_ID, body: txt, mType: type, t: new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}), ok: false };
-        
-        if (!db[activeChat]) db[activeChat] = [];
-        db[activeChat].push(pkg);
+    function sendVibe(mType, body = null) {
+        const input = document.getElementById('main-input');
+        const text = body || input.value.trim();
+        if (!text || !activePartner) return;
+
+        const mId = 'm_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
+        const pkg = {
+            mId: mId,
+            type: 'msg',
+            from: CONFIG.myId,
+            to: activePartner,
+            body: text,
+            mType: mType,
+            time: new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}),
+            status: 'pending' // Будет 'read' когда придет ACK
+        };
+
+        if (!db[activePartner]) db[activePartner] = [];
+        db[activePartner].push(pkg);
         save();
-        
-        // Шлем с QoS 1
-        client.publish(`v12/to/${activeChat}/msg`, JSON.stringify(pkg), {qos: 1});
-        
-        if (!body) document.getElementById('m-in').value = '';
-        loadMsgs();
+        renderMsgs();
+        scroll();
+
+        // Добавляем в очередь на переотправку и шлем
+        retryQueue.set(mId, pkg);
+        client.publish(CONFIG.prefix + activePartner + '/msg', JSON.stringify(pkg), {qos: 1});
+
+        if (!body) { input.value = ''; input.style.height = 'auto'; updateActionBtn(); }
+    }
+
+    // --- ИНТЕРФЕЙС ---
+    function handleRadar(u) {
+        users.set(u.id, { ...u, last: Date.now(), unread: users.get(u.id)?.unread || 0 });
+        renderUsers();
     }
 
     function renderUsers() {
-        const list = document.getElementById('contact-list');
-        list.innerHTML = '';
-        users.forEach((u, id) => {
-            if (Date.now() - u.last > 6000) return;
-            const badge = u.unread > 0 ? `<div class="badge" style="display:block">${u.unread}</div>` : '';
-            list.innerHTML += `<div class="user-card" onclick="openChat('${id}')">
-                <div><b>${u.nick}</b><br><small style="color:var(--success)">онлайн</small></div>
-                ${badge}
-            </div>`;
+        const container = document.getElementById('contact-list');
+        container.innerHTML = '';
+        const sorted = Array.from(users.values()).sort((a,b) => b.last - a.last);
+        
+        sorted.forEach(u => {
+            const isOnline = Date.now() - u.last < 7000;
+            if (!isOnline) return; 
+            
+            const badge = u.unread > 0 ? `<div class="unread-dot">${u.unread}</div>` : '';
+            container.innerHTML += `
+                <div class="user-card online" onclick="openChat('${u.id}')">
+                    <div class="u-info">
+                        <b>${u.nick}</b>
+                        <span>онлайн</span>
+                    </div>
+                    ${badge}
+                </div>`;
         });
     }
 
     function openChat(id) {
-        activeChat = id;
-        users.get(id).unread = 0;
-        document.getElementById('p-nick').innerText = users.get(id).nick;
+        activePartner = id;
+        const u = users.get(id);
+        u.unread = 0;
+        document.getElementById('p-name').innerText = u.nick;
         document.getElementById('chat-window').classList.add('active');
+        
+        // Помечаем старые входящие как прочитанные в UI
+        if (db[id]) {
+            db[id].forEach(m => {
+                if (m.from === id && m.status !== 'read') {
+                    client.publish(CONFIG.prefix + id + '/ack', JSON.stringify({mId: m.mId}), {qos: 1});
+                    m.status = 'read';
+                }
+            });
+        }
+        
         renderUsers();
-        loadMsgs();
+        renderMsgs();
+        setTimeout(scroll, 50);
     }
 
-    function loadMsgs() {
+    function renderMsgs() {
         const box = document.getElementById('messages');
         box.innerHTML = '';
-        (db[activeChat] || []).forEach(m => {
-            const mine = m.from === MY_ID;
-            const content = m.mType === 'text' ? m.body : m.mType === 'img' ? `<img src="${m.body}">` : `<audio controls src="${m.body}"></audio>`;
-            const check = mine ? (m.ok ? ' ✓✓' : ' ✓') : '';
-            box.innerHTML += `<div class="msg ${mine?'mine':'other'}">${content}<div class="msg-info">${m.t}${check}</div></div>`;
+        (db[activePartner] || []).forEach(m => {
+            const mine = m.from === CONFIG.myId;
+            const content = m.mType === 'text' ? m.body : m.mType === 'img' ? `<img src="${m.body}" onclick="window.open('${m.body}')">` : `<audio controls src="${m.body}"></audio>`;
+            
+            let statusIcon = '';
+            if (mine) {
+                if (m.status === 'pending') statusIcon = '<span class="status-icon status-pending">✓</span>';
+                else statusIcon = '<span class="status-icon status-read">✓✓</span>';
+            }
+
+            box.innerHTML += `
+                <div class="msg-row">
+                    <div class="msg ${mine?'mine':'other'}">
+                        ${content}
+                        <div class="msg-meta">${m.time} ${statusIcon}</div>
+                    </div>
+                </div>`;
         });
-        box.scrollTop = box.scrollHeight;
     }
 
-    function closeChat() { document.getElementById('chat-window').classList.remove('active'); activeChat = null; }
-    function changeNick() { const n = prompt("Ник:", MY_NICK); if(n) { MY_NICK = n; localStorage.setItem('v12_nick', n); document.getElementById('me-nick').innerText = n; } }
-    function save() { localStorage.setItem(DB_KEY, JSON.stringify(db)); }
+    function closeChat() { document.getElementById('chat-window').classList.remove('active'); activePartner = null; }
 
-    // МЕДИА
-    document.getElementById('f-up').onchange = (e) => {
-        const r = new FileReader(); r.readAsDataURL(e.target.files[0]);
-        r.onload = () => send('img', r.result);
+    function scroll() { const b = document.getElementById('messages'); b.scrollTop = b.scrollHeight; }
+
+    function save() { localStorage.setItem('v13_db', JSON.stringify(db)); }
+
+    function editNick() {
+        const n = prompt("Ваш новый позывной:", CONFIG.nick);
+        if (n && n.trim()) {
+            CONFIG.nick = n.trim();
+            localStorage.setItem('v13_nick', CONFIG.nick);
+            document.getElementById('me-nick').innerText = CONFIG.nick;
+        }
+    }
+
+    // --- ГОРЯЧИЕ ФУНКЦИИ ---
+    const inp = document.getElementById('main-input');
+    const actBtn = document.getElementById('action-btn');
+
+    inp.addEventListener('input', () => {
+        inp.style.height = 'auto';
+        inp.style.height = inp.scrollHeight + 'px';
+        updateActionBtn();
+        if (activePartner) client.publish(CONFIG.prefix + activePartner + '/type', JSON.stringify({type:'typing', from:CONFIG.myId}));
+    });
+
+    function updateActionBtn() {
+        if (inp.value.trim().length > 0) {
+            actBtn.innerHTML = '➤';
+            actBtn.onclick = () => sendVibe('text');
+        } else {
+            actBtn.innerHTML = '🎤';
+            actBtn.onclick = null; // Будет обработано через mousedown для голоса
+        }
+    }
+    updateActionBtn();
+
+    let typingT;
+    function showTyping() {
+        const b = document.getElementById('typing-box'); b.classList.add('show');
+        clearTimeout(typingT); typingT = setTimeout(() => b.classList.remove('show'), 2000);
+    }
+
+    // --- МЕДИА (ФОТО И ГОЛОС) ---
+    document.getElementById('upload-img').onchange = (e) => {
+        const file = e.target.files[0];
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            const img = new Image();
+            img.src = ev.target.result;
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                const MAX = 500;
+                let w = img.width, h = img.height;
+                if (w > h) { if(w > MAX){ h *= MAX/w; w = MAX; } }
+                else { if(h > MAX){ w *= MAX/h; h = MAX; } }
+                canvas.width = w; canvas.height = h;
+                canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+                sendVibe('img', canvas.toDataURL('image/jpeg', 0.7));
+            };
+        };
+        reader.readAsDataURL(file);
     };
 
-    const mBtn = document.getElementById('m-btn');
-    let rec;
-    mBtn.onmousedown = mBtn.ontouchstart = async () => {
-        const s = await navigator.mediaDevices.getUserMedia({audio:true});
-        rec = new MediaRecorder(s); let chunks = [];
-        rec.ondataavailable = e => chunks.push(e.data);
-        rec.onstop = () => { const r = new FileReader(); r.readAsDataURL(new Blob(chunks)); r.onload = () => send('audio', r.result); s.getTracks().forEach(t=>t.stop()); };
-        rec.start(); mBtn.style.color = 'red';
+    let recorder, chunks = [];
+    actBtn.onmousedown = actBtn.ontouchstart = async (e) => {
+        if (inp.value.trim().length > 0) return;
+        e.preventDefault();
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({audio:true});
+            recorder = new MediaRecorder(stream);
+            recorder.ondataavailable = e => chunks.push(e.data);
+            recorder.onstop = () => {
+                const reader = new FileReader();
+                reader.readAsDataURL(new Blob(chunks, {type:'audio/webm'}));
+                reader.onloadend = () => sendVibe('audio', reader.result);
+                chunks = []; stream.getTracks().forEach(t=>t.stop());
+            };
+            recorder.start();
+            actBtn.classList.add('mic-active');
+        } catch(err) { alert("Микрофон недоступен"); }
     };
-    mBtn.onmouseup = mBtn.ontouchend = () => { if(rec) rec.stop(); mBtn.style.color = 'var(--accent)'; };
+    window.onmouseup = window.ontouchend = () => {
+        if (recorder && recorder.state === 'recording') {
+            recorder.stop();
+            actBtn.classList.remove('mic-active');
+        }
+    };
 
-    // ЗВОНКИ
-    async function startCall() {
-        showCall(users.get(activeChat).nick, false);
-        currentCallId = activeChat;
-        localStream = await navigator.mediaDevices.getUserMedia({video:true, audio:true});
-        document.getElementById('local-video').srcObject = localStream;
-        makePC();
-        localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
-        const o = await pc.createOffer(); await pc.setLocalDescription(o);
-        client.publish(`v12/to/${currentCallId}/call`, JSON.stringify({type:'offer', from:MY_ID, nick:MY_NICK, sdp:o}));
+    // --- ВИДЕОЗВОНКИ (WebRTC) ---
+    let pc, localStream, currentCallPartner;
+    const rtcCfg = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+
+    async function initiateCall() {
+        currentCallPartner = activePartner;
+        showCallScreen(users.get(activePartner).nick, false);
+        try {
+            localStream = await navigator.mediaDevices.getUserMedia({video:true, audio:true});
+            document.getElementById('video-local').srcObject = localStream;
+            createPC();
+            localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
+            const offer = await pc.createOffer();
+            await pc.setLocalDescription(offer);
+            client.publish(CONFIG.prefix + currentCallPartner + '/call', JSON.stringify({type:'call_offer', sdp:offer, from:CONFIG.myId, nick:CONFIG.nick}), {qos:1});
+        } catch(e) { alert("Ошибка камеры"); finalizeCall(); }
     }
 
-    let incoming;
-    async function answer() {
-        document.getElementById('c-acc').style.display = 'none';
-        localStream = await navigator.mediaDevices.getUserMedia({video:true, audio:true});
-        document.getElementById('local-video').srcObject = localStream;
-        makePC();
-        localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
-        await pc.setRemoteDescription(new RTCSessionDescription(incoming));
-        const a = await pc.createAnswer(); await pc.setLocalDescription(a);
-        client.publish(`v12/to/${currentCallId}/call`, JSON.stringify({type:'answer', from:MY_ID, sdp:a}));
+    let incomingSDP;
+    function handleCallOffer(data) {
+        currentCallPartner = data.from;
+        incomingSDP = data.sdp;
+        showCallScreen(data.nick, true);
     }
 
-    function makePC() {
-        pc = new RTCPeerConnection({iceServers:[{urls:'stun:stun.l.google.com:19302'}]});
-        pc.onicecandidate = e => { if(e.candidate) client.publish(`v12/to/${currentCallId}/call`, JSON.stringify({type:'ice', from:MY_ID, cand:e.candidate})); };
-        pc.ontrack = e => document.getElementById('remote-video').srcObject = e.streams[0];
+    async function answerCall() {
+        document.getElementById('call-accept-btn').style.display = 'none';
+        try {
+            localStream = await navigator.mediaDevices.getUserMedia({video:true, audio:true});
+            document.getElementById('video-local').srcObject = localStream;
+            createPC();
+            localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
+            await pc.setRemoteDescription(new RTCSessionDescription(incomingSDP));
+            const answer = await pc.createAnswer();
+            await pc.setLocalDescription(answer);
+            client.publish(CONFIG.prefix + currentCallPartner + '/call', JSON.stringify({type:'call_answer', sdp:answer, from:CONFIG.myId}), {qos:1});
+        } catch(e) { finalizeCall(); }
     }
 
-    function hang() { client.publish(`v12/to/${currentCallId}/call`, JSON.stringify({type:'hang', from:MY_ID})); stopCall(); }
-    function stopCall() {
-        document.getElementById('call-screen').style.display = 'none';
-        if(pc) pc.close(); if(localStream) localStream.getTracks().forEach(t=>t.stop());
+    function createPC() {
+        pc = new RTCPeerConnection(rtcCfg);
+        pc.onicecandidate = e => {
+            if (e.candidate) client.publish(CONFIG.prefix + currentCallPartner + '/call', JSON.stringify({type:'call_ice', ice:e.candidate, from:CONFIG.myId}));
+        };
+        pc.ontrack = e => document.getElementById('video-remote').srcObject = e.streams[0];
     }
-    function showCall(n, isIn) {
-        document.getElementById('call-screen').style.display = 'flex';
-        document.getElementById('c-name').innerText = n;
-        document.getElementById('c-acc').style.display = isIn ? 'block' : 'none';
+
+    function handleCallAnswer(data) { pc.setRemoteDescription(new RTCSessionDescription(data.sdp)); }
+    function handleCallIce(data) { if(pc) pc.addIceCandidate(new RTCIceCandidate(data.ice)); }
+    function hangup() { client.publish(CONFIG.prefix + currentCallPartner + '/call', JSON.stringify({type:'call_hangup', from:CONFIG.myId})); finalizeCall(); }
+    function finalizeCall() {
+        document.getElementById('call-ui').style.display = 'none';
+        if(pc) pc.close(); pc = null;
+        if(localStream) localStream.getTracks().forEach(t=>t.stop());
+    }
+    function showCallScreen(nick, isIncoming) {
+        document.getElementById('call-ui').style.display = 'flex';
+        document.getElementById('call-nick').innerText = nick;
+        document.getElementById('call-accept-btn').style.display = isIncoming ? 'flex' : 'none';
     }
 
     init();
 </script>
+
 </body>
 </html>
