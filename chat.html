@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Telegram V16 (Instant)</title>
+    <title>Telegram V17</title>
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
     <style>
         :root {
@@ -73,7 +73,7 @@
 <div id="app">
     <header>
         <div class="logo-area">
-            <h1>Telegram V16</h1>
+            <h1>Telegram V17</h1>
             <div class="my-status" id="sys-status">подключение...</div>
         </div>
         <button id="me-nick" onclick="editNick()">
@@ -103,15 +103,15 @@
 </div>
 
 <script>
-    // Изолируем базу для версии 16, чтобы старые баги не тянулись
+    // Изолируем конфигурацию и переводим на стабильный HiveMQ
     const CONFIG = {
-        broker: 'wss://broker.emqx.io:8084/mqtt',
-        radarTopic: 'tg_v16_radar_instant',
-        prefix: 'tg_v16_data/',
-        myId: localStorage.getItem('tg16_uid') || 'u_' + Math.random().toString(36).substr(2, 9),
-        nick: localStorage.getItem('tg16_nick') || 'User_' + Math.floor(Math.random()*99)
+        broker: 'wss://broker.hivemq.com:8443/mqtt',
+        radarTopic: 'tg_v17_radar_core',
+        prefix: 'tg_v17_data/',
+        myId: localStorage.getItem('tg17_uid') || 'u_' + Math.random().toString(36).substr(2, 9),
+        nick: localStorage.getItem('tg17_nick') || 'User_' + Math.floor(Math.random()*99)
     };
-    localStorage.setItem('tg16_uid', CONFIG.myId);
+    localStorage.setItem('tg17_uid', CONFIG.myId);
     
     const colors = ['#e17076', '#faa774', '#a695e7', '#7bc862', '#6ec9cb', '#65aadd', '#ee7aae'];
     function getAvaColor(id) { return colors[id.charCodeAt(id.length-1) % colors.length]; }
@@ -125,38 +125,36 @@
     updateMyUI();
 
     let client, activePartner = null, users = new Map();
-    let db = JSON.parse(localStorage.getItem('tg16_db')) || {};
+    let db = JSON.parse(localStorage.getItem('tg17_db')) || {};
+    let lastPing = Date.now();
 
     function init() {
-        // ЖЕСТКИЕ НАСТРОЙКИ СЕТИ: clean: false сохраняет сообщения на сервере пока ты офлайн.
-        // keepalive: 15 заставляет браузер держать сокет горячим.
+        // Жесткая фиксация ClientID и Clean Session = false для сохранения сообщений сервером
         client = mqtt.connect(CONFIG.broker, { 
-            clientId: 'v16_client_' + CONFIG.myId, 
+            clientId: 'v17_core_' + CONFIG.myId, 
             clean: false, 
-            keepalive: 15,
+            keepalive: 10,
             reconnectPeriod: 1000 
         });
 
         client.on('connect', () => {
-            document.getElementById('sys-status').innerText = 'в сети';
-            document.getElementById('sys-status').style.color = 'var(--tick-blue)';
-            
-            // Подписка с QoS 1 (Гарантия доставки)
-            client.subscribe(CONFIG.radarTopic, { qos: 0 });
+            updateStatus('в сети', 'var(--tick-blue)');
+            client.subscribe(CONFIG.radarTopic, { qos: 1 });
             client.subscribe(CONFIG.prefix + CONFIG.myId + '/#', { qos: 1 });
             
-            setInterval(() => {
-                client.publish(CONFIG.radarTopic, JSON.stringify({id: CONFIG.myId, nick: CONFIG.nick, t: Date.now()}), {qos: 0});
-            }, 2500);
-
-            resendPendingMessages(); // Разово проталкиваем то, что зависло
+            lastPing = Date.now();
+            resendPendingMessages();
         });
 
-        client.on('offline', () => { document.getElementById('sys-status').innerText = 'поиск сети...'; document.getElementById('sys-status').style.color = 'var(--text-muted)'; });
-        client.on('reconnect', () => { document.getElementById('sys-status').innerText = 'обновление...'; });
+        client.on('offline', () => updateStatus('ожидание сети...', 'var(--text-muted)'));
+        client.on('reconnect', () => updateStatus('обновление...', 'var(--accent)'));
 
         client.on('message', (topic, payload) => {
             const data = JSON.parse(payload.toString());
+            
+            // Если мы получили радар от себя же — значит соединение 100% живое
+            if (topic === CONFIG.radarTopic && data.id === CONFIG.myId) lastPing = Date.now();
+
             if (topic === CONFIG.radarTopic) {
                 if (data.id !== CONFIG.myId) handleRadar(data);
             } else {
@@ -165,11 +163,47 @@
         });
     }
 
+    function updateStatus(text, color) {
+        const el = document.getElementById('sys-status');
+        el.innerText = text; el.style.color = color;
+    }
+
+    // --- СИСТЕМЫ ЖИВУЧЕСТИ ---
+    
+    // 1. Радар + Пинг-понг
+    setInterval(() => {
+        if (client && client.connected) {
+            client.publish(CONFIG.radarTopic, JSON.stringify({id: CONFIG.myId, nick: CONFIG.nick, t: Date.now()}), {qos: 0});
+        }
+    }, 2500);
+
+    // 2. Watchdog (Сторожевой пес) - убивает зависший сокет браузера
+    setInterval(() => {
+        if (Date.now() - lastPing > 15000 && client) {
+            updateStatus('переподключение...', 'var(--danger)');
+            client.end(true); // Жестко рвем мертвое соединение
+            setTimeout(init, 500); // Перезапускаем
+            lastPing = Date.now();
+        }
+    }, 5000);
+
+    // 3. Visibility API - мгновенно будит чат, когда открываешь вкладку/телефон
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+            updateStatus('синхронизация...', 'var(--accent)');
+            if (client) {
+                client.reconnect();
+                resendPendingMessages();
+            }
+        }
+    });
+
+    // --- ЛОГИКА СООБЩЕНИЙ ---
     function handleIncoming(data) {
         const from = data.from;
 
         if (data.type === 'msg') {
-            // МГНОВЕННО шлем ответ: 1 галочка (доставлено на устройство) - строго с QoS 1
+            // МГНОВЕННО шлем ответ: 1 галочка (доставлено на устройство)
             client.publish(CONFIG.prefix + from + '/sys', JSON.stringify({type: 'ack_received', mId: data.mId, from: CONFIG.myId}), {qos: 1});
 
             if (!db[from]) db[from] = [];
@@ -190,38 +224,36 @@
                 else { let u = users.get(from); if (u) { u.unread = (u.unread || 0) + 1; renderUsers(); } }
             }
         } 
-        else if (data.type === 'ack_received') {
-            updateMsgStatus(data.from, data.mId, 'sent');
-        }
-        else if (data.type === 'ack_read') {
-            updateMsgStatus(data.from, data.mId, 'read');
-        }
-        else if (data.type === 'typing' && activePartner === from) {
-            showTyping();
-        }
+        else if (data.type === 'ack_received') updateMsgStatus(data.from, data.mId, 'sent');
+        else if (data.type === 'ack_read') updateMsgStatus(data.from, data.mId, 'read');
+        else if (data.type === 'typing' && activePartner === from) showTyping();
     }
 
     function updateMsgStatus(chatId, mId, newStatus) {
         if (!db[chatId]) return;
         const m = db[chatId].find(x => x.mId === mId);
         if (m) {
-            if (m.status === 'read') return; // Блокировка отката статуса
+            if (m.status === 'read') return; 
             m.status = newStatus;
             save();
-            if (activePartner === chatId) renderMsgs(); // Мгновенная отрисовка в UI
+            if (activePartner === chatId) renderMsgs(); 
         }
     }
 
+    // Постоянная долбежка сервера, пока сообщение не уйдет
     function resendPendingMessages() {
         Object.keys(db).forEach(chatId => {
             db[chatId].forEach(m => {
                 if (m.from === CONFIG.myId && m.status === 'pending') {
-                    // Переотправка только зависших
-                    client.publish(CONFIG.prefix + chatId + '/msg', JSON.stringify(m), {qos: 1});
+                    if (client && client.connected) {
+                        client.publish(CONFIG.prefix + chatId + '/msg', JSON.stringify(m), {qos: 1});
+                    }
                 }
             });
         });
     }
+    // Проталкиваем очередь каждые 3 секунды
+    setInterval(resendPendingMessages, 3000);
 
     function sendVibe(mType, body = null) {
         const input = document.getElementById('main-input');
@@ -234,13 +266,14 @@
         db[activePartner].push(pkg);
         save(); renderMsgs(); scroll();
 
-        // QoS 1 гарантирует доставку сервером!
-        client.publish(CONFIG.prefix + activePartner + '/msg', JSON.stringify(pkg), {qos: 1});
+        if (client && client.connected) {
+            client.publish(CONFIG.prefix + activePartner + '/msg', JSON.stringify(pkg), {qos: 1});
+        }
 
         if (!body) { input.value = ''; input.style.height = 'auto'; }
     }
 
-    // Интерфейс
+    // --- ИНТЕРФЕЙС ---
     function handleRadar(u) {
         users.set(u.id, { ...u, last: Date.now(), unread: users.get(u.id)?.unread || 0 });
         renderUsers();
@@ -253,7 +286,7 @@
         
         let onlineCount = 0;
         sorted.forEach(u => {
-            if (Date.now() - u.last > 8000) return; 
+            if (Date.now() - u.last > 10000) return; 
             onlineCount++;
             const badge = u.unread > 0 ? `<div class="unread-dot">${u.unread}</div>` : '';
             const bg = getAvaColor(u.id);
@@ -323,17 +356,19 @@
 
     function closeChat() { document.getElementById('chat-window').classList.remove('active'); activePartner = null; }
     function scroll() { const b = document.getElementById('messages'); b.scrollTop = b.scrollHeight; }
-    function save() { localStorage.setItem('tg16_db', JSON.stringify(db)); }
+    function save() { localStorage.setItem('tg17_db', JSON.stringify(db)); }
 
     function editNick() {
         const n = prompt("Ваше имя:", CONFIG.nick);
-        if (n && n.trim()) { CONFIG.nick = n.trim(); localStorage.setItem('tg16_nick', CONFIG.nick); updateMyUI(); }
+        if (n && n.trim()) { CONFIG.nick = n.trim(); localStorage.setItem('tg17_nick', CONFIG.nick); updateMyUI(); }
     }
 
     const inp = document.getElementById('main-input');
     inp.addEventListener('input', () => {
         inp.style.height = 'auto'; inp.style.height = Math.min(inp.scrollHeight, 120) + 'px';
-        if (activePartner) client.publish(CONFIG.prefix + activePartner + '/sys', JSON.stringify({type:'typing', from:CONFIG.myId}), {qos: 0});
+        if (activePartner && client && client.connected) {
+            client.publish(CONFIG.prefix + activePartner + '/sys', JSON.stringify({type:'typing', from:CONFIG.myId}), {qos: 0});
+        }
     });
 
     document.getElementById('action-btn').onclick = () => sendVibe('text');
