@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Telegram Vibe 100%</title>
+    <title>Telegram V16 (Instant)</title>
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
     <style>
         :root {
             --bg: #0e1621; --header-bg: #17212b; --msg-mine: #2b5278; --msg-other: #182533;
             --accent: #5288c1; --text-main: #ffffff; --text-muted: #7f91a4; 
-            --tick-gray: #7fa6c8; --tick-blue: #5eb5f7; --divider: #0b1016; --danger: #e64a4a;
+            --tick-gray: #7fa6c8; --tick-blue: #5eb5f7; --divider: #0b1016;
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; -webkit-tap-highlight-color: transparent; }
@@ -32,7 +32,6 @@
         .u-info { flex: 1; display: flex; flex-direction: column; justify-content: center; border-bottom: 1px solid var(--divider); padding-bottom: 12px; padding-top: 2px; }
         .u-info-top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px; }
         .u-name { font-size: 16px; font-weight: 500; }
-        .u-status { font-size: 14px; color: var(--accent); }
         .unread-dot { background: var(--text-muted); color: var(--bg); min-width: 22px; height: 22px; border-radius: 11px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; padding: 0 6px; }
 
         /* CHAT WINDOW */
@@ -47,27 +46,26 @@
         
         #messages { flex: 1; overflow-y: auto; padding: 16px 12px; display: flex; flex-direction: column; gap: 4px; }
         .msg-row { display: flex; width: 100%; }
-        .msg { max-width: 82%; padding: 6px 12px; border-radius: 12px; font-size: 15px; line-height: 1.4; position: relative; color: var(--text-main); word-wrap: break-word; }
+        .msg { max-width: 82%; padding: 6px 12px; border-radius: 12px; font-size: 15px; line-height: 1.4; position: relative; color: var(--text-main); word-wrap: break-word; box-shadow: 0 1px 1px rgba(0,0,0,0.2); }
         .msg.mine { background: var(--msg-mine); margin-left: auto; border-bottom-right-radius: 0; }
         .msg.other { background: var(--msg-other); border-bottom-left-radius: 0; }
         
         .msg-meta { float: right; margin: 6px 0 -4px 10px; font-size: 11px; color: rgba(255,255,255,0.5); display: flex; align-items: center; gap: 4px; }
         .status-icon { font-size: 13px; font-weight: bold; }
-        .st-pending { color: rgba(255,255,255,0.3); } /* Часики */
-        .st-sent { color: var(--tick-gray); } /* 1 галочка */
-        .st-read { color: var(--tick-blue); } /* 2 галочки */
+        .st-pending { color: rgba(255,255,255,0.3); } 
+        .st-sent { color: var(--tick-gray); } 
+        .st-read { color: var(--tick-blue); } 
 
         .msg img { max-width: 100%; border-radius: 8px; margin-top: 4px; cursor: pointer; display: block; }
-        .msg audio { max-width: 220px; height: 32px; margin-top: 4px; }
-
+        
         /* INPUT */
         .typing-label { font-size: 13px; color: var(--accent); padding: 4px 16px; height: 24px; opacity: 0; transition: 0.2s; position: absolute; bottom: 65px; left: 0; background: var(--bg); width: 100%; }
         .typing-label.show { opacity: 1; }
-        .input-wrap { padding: 8px 12px 24px; background: var(--header-bg); display: flex; align-items: flex-end; gap: 10px; position: relative; z-index: 2; }
+        .input-wrap { padding: 8px 12px 24px; background: var(--header-bg); display: flex; align-items: flex-end; gap: 10px; position: relative; z-index: 2; border-top: 1px solid var(--divider); }
         .attach-btn { font-size: 24px; color: var(--text-muted); cursor: pointer; padding: 8px; }
         #main-input { flex: 1; background: var(--bg); border: none; color: var(--text-main); padding: 10px 16px; border-radius: 20px; outline: none; font-size: 16px; max-height: 120px; resize: none; margin-bottom: 2px; }
-        .send-trigger { width: 44px; height: 44px; border-radius: 50%; background: var(--bg); color: var(--accent); border: none; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; font-size: 20px; }
-        .send-trigger.ready { background: var(--accent); color: white; }
+        .send-trigger { width: 44px; height: 44px; border-radius: 50%; background: var(--accent); color: white; border: none; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; font-size: 20px; }
+        .send-trigger:active { transform: scale(0.95); }
     </style>
 </head>
 <body>
@@ -75,7 +73,7 @@
 <div id="app">
     <header>
         <div class="logo-area">
-            <h1>Telegram V15</h1>
+            <h1>Telegram V16</h1>
             <div class="my-status" id="sys-status">подключение...</div>
         </div>
         <button id="me-nick" onclick="editNick()">
@@ -100,19 +98,20 @@
     <div class="input-wrap">
         <label class="attach-btn">📎<input type="file" id="upload-img" accept="image/*" style="display:none"></label>
         <textarea id="main-input" rows="1" placeholder="Сообщение..."></textarea>
-        <button class="send-trigger" id="action-btn">🎤</button>
+        <button class="send-trigger" id="action-btn">➤</button>
     </div>
 </div>
 
 <script>
+    // Изолируем базу для версии 16, чтобы старые баги не тянулись
     const CONFIG = {
         broker: 'wss://broker.emqx.io:8084/mqtt',
-        radarTopic: 'tg_v15_radar_sync',
-        prefix: 'tg_v15_data/',
-        myId: localStorage.getItem('tg15_uid') || 'u_' + Math.random().toString(36).substr(2, 9),
-        nick: localStorage.getItem('tg15_nick') || 'User_' + Math.floor(Math.random()*99)
+        radarTopic: 'tg_v16_radar_instant',
+        prefix: 'tg_v16_data/',
+        myId: localStorage.getItem('tg16_uid') || 'u_' + Math.random().toString(36).substr(2, 9),
+        nick: localStorage.getItem('tg16_nick') || 'User_' + Math.floor(Math.random()*99)
     };
-    localStorage.setItem('tg15_uid', CONFIG.myId);
+    localStorage.setItem('tg16_uid', CONFIG.myId);
     
     const colors = ['#e17076', '#faa774', '#a695e7', '#7bc862', '#6ec9cb', '#65aadd', '#ee7aae'];
     function getAvaColor(id) { return colors[id.charCodeAt(id.length-1) % colors.length]; }
@@ -126,23 +125,35 @@
     updateMyUI();
 
     let client, activePartner = null, users = new Map();
-    // Структура db: { 'u_123': [ {mId, body, type, from, to, status: 'pending'|'sent'|'read', time} ] }
-    let db = JSON.parse(localStorage.getItem('tg15_db')) || {};
+    let db = JSON.parse(localStorage.getItem('tg16_db')) || {};
 
     function init() {
-        client = mqtt.connect(CONFIG.broker, { clientId: 'c_' + CONFIG.myId, clean: true, reconnectPeriod: 1000 });
+        // ЖЕСТКИЕ НАСТРОЙКИ СЕТИ: clean: false сохраняет сообщения на сервере пока ты офлайн.
+        // keepalive: 15 заставляет браузер держать сокет горячим.
+        client = mqtt.connect(CONFIG.broker, { 
+            clientId: 'v16_client_' + CONFIG.myId, 
+            clean: false, 
+            keepalive: 15,
+            reconnectPeriod: 1000 
+        });
 
         client.on('connect', () => {
             document.getElementById('sys-status').innerText = 'в сети';
-            client.subscribe(CONFIG.radarTopic);
-            client.subscribe(CONFIG.prefix + CONFIG.myId + '/#');
+            document.getElementById('sys-status').style.color = 'var(--tick-blue)';
             
-            // Радар и авто-переотправка зависших сообщений
+            // Подписка с QoS 1 (Гарантия доставки)
+            client.subscribe(CONFIG.radarTopic, { qos: 0 });
+            client.subscribe(CONFIG.prefix + CONFIG.myId + '/#', { qos: 1 });
+            
             setInterval(() => {
-                client.publish(CONFIG.radarTopic, JSON.stringify({id: CONFIG.myId, nick: CONFIG.nick, t: Date.now()}));
-                resendPendingMessages();
-            }, 2000);
+                client.publish(CONFIG.radarTopic, JSON.stringify({id: CONFIG.myId, nick: CONFIG.nick, t: Date.now()}), {qos: 0});
+            }, 2500);
+
+            resendPendingMessages(); // Разово проталкиваем то, что зависло
         });
+
+        client.on('offline', () => { document.getElementById('sys-status').innerText = 'поиск сети...'; document.getElementById('sys-status').style.color = 'var(--text-muted)'; });
+        client.on('reconnect', () => { document.getElementById('sys-status').innerText = 'обновление...'; });
 
         client.on('message', (topic, payload) => {
             const data = JSON.parse(payload.toString());
@@ -154,20 +165,19 @@
         });
     }
 
-    // --- ЛОГИКА ДОСТАВКИ И ГАЛОЧЕК ---
     function handleIncoming(data) {
         const from = data.from;
 
         if (data.type === 'msg') {
-            // 1. Сообщение пришло. СРАЗУ шлем технический ответ "Доставлено на устройство" (1 галочка)
-            client.publish(CONFIG.prefix + from + '/sys', JSON.stringify({type: 'ack_received', mId: data.mId, from: CONFIG.myId}));
+            // МГНОВЕННО шлем ответ: 1 галочка (доставлено на устройство) - строго с QoS 1
+            client.publish(CONFIG.prefix + from + '/sys', JSON.stringify({type: 'ack_received', mId: data.mId, from: CONFIG.myId}), {qos: 1});
 
             if (!db[from]) db[from] = [];
             const exists = db[from].find(m => m.mId === data.mId);
             
-            // Если мы прямо сейчас в чате с этим человеком - шлем "Прочитано" (2 галочки)
             if (activePartner === from) {
-                client.publish(CONFIG.prefix + from + '/sys', JSON.stringify({type: 'ack_read', mId: data.mId, from: CONFIG.myId}));
+                // Если чат открыт: 2 галочки (прочитано)
+                client.publish(CONFIG.prefix + from + '/sys', JSON.stringify({type: 'ack_read', mId: data.mId, from: CONFIG.myId}), {qos: 1});
                 data.status = 'read';
             } else {
                 data.status = 'received';
@@ -181,34 +191,33 @@
             }
         } 
         else if (data.type === 'ack_received') {
-            // Друг получил пакет. Ставим 1 галочку.
             updateMsgStatus(data.from, data.mId, 'sent');
         }
         else if (data.type === 'ack_read') {
-            // Друг открыл чат. Ставим 2 галочки.
             updateMsgStatus(data.from, data.mId, 'read');
         }
-        else if (data.type === 'typing' && activePartner === from) showTyping();
+        else if (data.type === 'typing' && activePartner === from) {
+            showTyping();
+        }
     }
 
     function updateMsgStatus(chatId, mId, newStatus) {
         if (!db[chatId]) return;
         const m = db[chatId].find(x => x.mId === mId);
         if (m) {
-            // Защита от понижения статуса (чтобы read не сбросилось на sent)
-            if (m.status === 'read') return; 
+            if (m.status === 'read') return; // Блокировка отката статуса
             m.status = newStatus;
             save();
-            if (activePartner === chatId) renderMsgs();
+            if (activePartner === chatId) renderMsgs(); // Мгновенная отрисовка в UI
         }
     }
 
-    // Механизм 100% доставки. Долбит брокер, пока не получит ack_received
     function resendPendingMessages() {
         Object.keys(db).forEach(chatId => {
             db[chatId].forEach(m => {
                 if (m.from === CONFIG.myId && m.status === 'pending') {
-                    client.publish(CONFIG.prefix + chatId + '/msg', JSON.stringify(m));
+                    // Переотправка только зависших
+                    client.publish(CONFIG.prefix + chatId + '/msg', JSON.stringify(m), {qos: 1});
                 }
             });
         });
@@ -225,13 +234,13 @@
         db[activePartner].push(pkg);
         save(); renderMsgs(); scroll();
 
-        // Отправляем в сеть
-        client.publish(CONFIG.prefix + activePartner + '/msg', JSON.stringify(pkg));
+        // QoS 1 гарантирует доставку сервером!
+        client.publish(CONFIG.prefix + activePartner + '/msg', JSON.stringify(pkg), {qos: 1});
 
-        if (!body) { input.value = ''; input.style.height = 'auto'; updateActionBtn(); }
+        if (!body) { input.value = ''; input.style.height = 'auto'; }
     }
 
-    // --- ИНТЕРФЕЙС ---
+    // Интерфейс
     function handleRadar(u) {
         users.set(u.id, { ...u, last: Date.now(), unread: users.get(u.id)?.unread || 0 });
         renderUsers();
@@ -255,31 +264,30 @@
                     <div class="avatar" style="background: ${bg}">${initial}</div>
                     <div class="u-info">
                         <div class="u-info-top"><div class="u-name">${u.nick}</div>${badge}</div>
-                        <div class="u-status">в сети</div>
+                        <div class="u-status" style="color:var(--accent); font-size:13px">в сети</div>
                     </div>
                 </div>`;
         });
-        if (onlineCount === 0) container.innerHTML = '<div style="text-align: center; color: var(--text-muted); padding: 40px; font-size: 15px;">Нет контактов онлайн</div>';
+        if (onlineCount === 0) container.innerHTML = '<div style="text-align: center; color: var(--text-muted); padding: 40px; font-size: 15px;">Радар ищет контакты...</div>';
     }
 
     function openChat(id) {
         activePartner = id;
         const u = users.get(id);
-        u.unread = 0;
+        if(u) u.unread = 0;
         
-        document.getElementById('p-name').innerText = u.nick;
+        document.getElementById('p-name').innerText = u ? u.nick : 'User';
         const pAva = document.getElementById('p-ava');
-        pAva.innerText = u.nick.charAt(0).toUpperCase();
-        pAva.style.background = getAvaColor(u.id);
+        pAva.innerText = u ? u.nick.charAt(0).toUpperCase() : 'U';
+        pAva.style.background = getAvaColor(id);
 
         document.getElementById('chat-window').classList.add('active');
         
-        // Отмечаем входящие как прочитанные и уведомляем собеседника
         if (db[id]) {
             let changed = false;
             db[id].forEach(m => {
                 if (m.from === id && m.status !== 'read') {
-                    client.publish(CONFIG.prefix + id + '/sys', JSON.stringify({type: 'ack_read', mId: m.mId, from: CONFIG.myId}));
+                    client.publish(CONFIG.prefix + id + '/sys', JSON.stringify({type: 'ack_read', mId: m.mId, from: CONFIG.myId}), {qos: 1});
                     m.status = 'read';
                     changed = true;
                 }
@@ -294,7 +302,7 @@
         box.innerHTML = '';
         (db[activePartner] || []).forEach(m => {
             const mine = m.from === CONFIG.myId;
-            const content = m.mType === 'text' ? m.body : m.mType === 'img' ? `<img src="${m.body}">` : `<audio controls src="${m.body}"></audio>`;
+            const content = m.mType === 'text' ? m.body : `<img src="${m.body}">`;
             
             let statusIcon = '';
             if (mine) {
@@ -315,33 +323,40 @@
 
     function closeChat() { document.getElementById('chat-window').classList.remove('active'); activePartner = null; }
     function scroll() { const b = document.getElementById('messages'); b.scrollTop = b.scrollHeight; }
-    function save() { localStorage.setItem('tg15_db', JSON.stringify(db)); }
+    function save() { localStorage.setItem('tg16_db', JSON.stringify(db)); }
 
     function editNick() {
         const n = prompt("Ваше имя:", CONFIG.nick);
-        if (n && n.trim()) { CONFIG.nick = n.trim(); localStorage.setItem('tg15_nick', CONFIG.nick); updateMyUI(); }
+        if (n && n.trim()) { CONFIG.nick = n.trim(); localStorage.setItem('tg16_nick', CONFIG.nick); updateMyUI(); }
     }
 
     const inp = document.getElementById('main-input');
-    const actBtn = document.getElementById('action-btn');
-
     inp.addEventListener('input', () => {
         inp.style.height = 'auto'; inp.style.height = Math.min(inp.scrollHeight, 120) + 'px';
-        updateActionBtn();
-        if (activePartner) client.publish(CONFIG.prefix + activePartner + '/sys', JSON.stringify({type:'typing', from:CONFIG.myId}));
+        if (activePartner) client.publish(CONFIG.prefix + activePartner + '/sys', JSON.stringify({type:'typing', from:CONFIG.myId}), {qos: 0});
     });
 
-    function updateActionBtn() {
-        if (inp.value.trim().length > 0) { actBtn.innerHTML = '➤'; actBtn.classList.add('ready'); actBtn.onclick = () => sendVibe('text'); } 
-        else { actBtn.innerHTML = '🎤'; actBtn.classList.remove('ready'); actBtn.onclick = null; }
-    }
-    updateActionBtn();
+    document.getElementById('action-btn').onclick = () => sendVibe('text');
 
     let typingT;
     function showTyping() {
         const b = document.getElementById('typing-box'); b.classList.add('show');
         clearTimeout(typingT); typingT = setTimeout(() => b.classList.remove('show'), 2000);
     }
+
+    document.getElementById('upload-img').onchange = (e) => {
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            const img = new Image(); img.src = ev.target.result;
+            img.onload = () => {
+                const canvas = document.createElement('canvas'); const MAX = 600; let w = img.width, h = img.height;
+                if (w > h) { if(w > MAX){ h *= MAX/w; w = MAX; } } else { if(h > MAX){ w *= MAX/h; h = MAX; } }
+                canvas.width = w; canvas.height = h; canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+                sendVibe('img', canvas.toDataURL('image/jpeg', 0.6));
+            };
+        };
+        reader.readAsDataURL(e.target.files[0]);
+    };
 
     init();
 </script>
