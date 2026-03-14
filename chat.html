@@ -3,35 +3,38 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Telegram V17</title>
+    <title>Telegram V18 (Private)</title>
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
     <style>
         :root {
             --bg: #0e1621; --header-bg: #17212b; --msg-mine: #2b5278; --msg-other: #182533;
             --accent: #5288c1; --text-main: #ffffff; --text-muted: #7f91a4; 
-            --tick-gray: #7fa6c8; --tick-blue: #5eb5f7; --divider: #0b1016;
+            --tick-gray: #7fa6c8; --tick-blue: #5eb5f7; --divider: #0b1016; --danger: #e17076;
         }
 
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; -webkit-tap-highlight-color: transparent; }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; -webkit-tap-highlight-color: transparent; }
         body { background: var(--bg); color: var(--text-main); height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
 
         ::-webkit-scrollbar { width: 4px; } ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
 
-        /* HEADER */
-        header { padding: 40px 16px 12px; background: var(--header-bg); border-bottom: 1px solid var(--divider); display: flex; justify-content: space-between; align-items: center; z-index: 10; box-shadow: 0 1px 2px rgba(0,0,0,0.2); }
+        /* HEADER & SEARCH */
+        header { padding: 40px 16px 12px; background: var(--header-bg); display: flex; justify-content: space-between; align-items: center; z-index: 10; }
         .logo-area h1 { font-size: 20px; font-weight: 600; }
         .my-status { font-size: 13px; color: var(--accent); margin-top: 2px; }
-        #me-nick { background: none; border: none; color: var(--text-main); font-size: 16px; font-weight: 500; cursor: pointer; display: flex; align-items: center; gap: 8px; }
-        .my-avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--accent); display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 14px; }
+        
+        .search-bar { background: var(--header-bg); padding: 10px 16px; border-bottom: 1px solid var(--divider); display: flex; gap: 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.2); z-index: 9;}
+        .search-bar input { flex: 1; background: var(--bg); border: none; color: var(--text-main); padding: 10px 16px; border-radius: 20px; outline: none; font-size: 15px; }
+        .search-bar button { background: var(--accent); color: white; border: none; padding: 0 16px; border-radius: 20px; font-weight: 500; cursor: pointer; }
 
         /* CONTACTS */
         #contact-list { flex: 1; overflow-y: auto; display: flex; flex-direction: column; }
-        .user-card { padding: 10px 16px; display: flex; align-items: center; gap: 12px; cursor: pointer; transition: background 0.1s; }
+        .user-card { padding: 10px 16px; display: flex; align-items: center; gap: 12px; cursor: pointer; transition: 0.1s; }
         .user-card:active { background: var(--header-bg); }
         .avatar { width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: bold; color: #fff; flex-shrink: 0; }
         .u-info { flex: 1; display: flex; flex-direction: column; justify-content: center; border-bottom: 1px solid var(--divider); padding-bottom: 12px; padding-top: 2px; }
         .u-info-top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px; }
         .u-name { font-size: 16px; font-weight: 500; }
+        .u-lastmsg { font-size: 14px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px; }
         .unread-dot { background: var(--text-muted); color: var(--bg); min-width: 22px; height: 22px; border-radius: 11px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; padding: 0 6px; }
 
         /* CHAT WINDOW */
@@ -39,10 +42,9 @@
         #chat-window.active { display: flex; transform: translateX(0); }
         .chat-head { padding: 40px 16px 10px; background: var(--header-bg); display: flex; align-items: center; gap: 12px; box-shadow: 0 1px 2px rgba(0,0,0,0.2); }
         .back-btn { font-size: 28px; color: var(--text-muted); cursor: pointer; margin-right: 4px; padding-bottom: 2px; }
-        .p-avatar { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; color: white; }
         .partner-info { flex: 1; display: flex; flex-direction: column; }
         .partner-info b { font-size: 16px; font-weight: 500; }
-        .partner-info span { font-size: 13px; color: var(--accent); margin-top: 1px; }
+        .partner-info span { font-size: 13px; color: var(--text-muted); margin-top: 1px; }
         
         #messages { flex: 1; overflow-y: auto; padding: 16px 12px; display: flex; flex-direction: column; gap: 4px; }
         .msg-row { display: flex; width: 100%; }
@@ -51,21 +53,18 @@
         .msg.other { background: var(--msg-other); border-bottom-left-radius: 0; }
         
         .msg-meta { float: right; margin: 6px 0 -4px 10px; font-size: 11px; color: rgba(255,255,255,0.5); display: flex; align-items: center; gap: 4px; }
-        .status-icon { font-size: 13px; font-weight: bold; }
         .st-pending { color: rgba(255,255,255,0.3); } 
-        .st-sent { color: var(--tick-gray); } 
-        .st-read { color: var(--tick-blue); } 
+        .st-sent { color: var(--tick-gray); font-weight: bold; } 
+        .st-read { color: var(--tick-blue); font-weight: bold; } 
 
-        .msg img { max-width: 100%; border-radius: 8px; margin-top: 4px; cursor: pointer; display: block; }
-        
         /* INPUT */
         .typing-label { font-size: 13px; color: var(--accent); padding: 4px 16px; height: 24px; opacity: 0; transition: 0.2s; position: absolute; bottom: 65px; left: 0; background: var(--bg); width: 100%; }
         .typing-label.show { opacity: 1; }
         .input-wrap { padding: 8px 12px 24px; background: var(--header-bg); display: flex; align-items: flex-end; gap: 10px; position: relative; z-index: 2; border-top: 1px solid var(--divider); }
-        .attach-btn { font-size: 24px; color: var(--text-muted); cursor: pointer; padding: 8px; }
         #main-input { flex: 1; background: var(--bg); border: none; color: var(--text-main); padding: 10px 16px; border-radius: 20px; outline: none; font-size: 16px; max-height: 120px; resize: none; margin-bottom: 2px; }
         .send-trigger { width: 44px; height: 44px; border-radius: 50%; background: var(--accent); color: white; border: none; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; font-size: 20px; }
-        .send-trigger:active { transform: scale(0.95); }
+        
+        .empty-state { text-align: center; color: var(--text-muted); padding: 40px 20px; font-size: 15px; line-height: 1.5; }
     </style>
 </head>
 <body>
@@ -73,94 +72,93 @@
 <div id="app">
     <header>
         <div class="logo-area">
-            <h1>Telegram V17</h1>
+            <h1>Telegram V18</h1>
             <div class="my-status" id="sys-status">подключение...</div>
         </div>
-        <button id="me-nick" onclick="editNick()">
-            <span id="ui-my-name">User</span>
-            <div class="my-avatar" id="ui-my-ava">U</div>
-        </button>
+        <div style="text-align: right;">
+            <div style="font-size: 12px; color: var(--text-muted);">твой юзернейм</div>
+            <b id="my-username" style="color: var(--accent);">@user</b>
+        </div>
     </header>
+    <div class="search-bar">
+        <input type="text" id="search-input" placeholder="Введите @username друга..." autocomplete="off">
+        <button onclick="searchUser()">Найти</button>
+    </div>
     <div id="contact-list"></div>
 </div>
 
 <div id="chat-window">
     <div class="chat-head">
         <div class="back-btn" onclick="closeChat()">‹</div>
-        <div class="p-avatar" id="p-ava">P</div>
+        <div class="avatar" id="p-ava" style="width: 36px; height: 36px; font-size: 14px;">P</div>
         <div class="partner-info">
-            <b id="p-name">Partner</b>
-            <span id="p-status">в сети</span>
+            <b id="p-name">@username</b>
+            <span id="p-status">закрытый чат</span>
         </div>
     </div>
     <div id="messages"></div>
     <div class="typing-label" id="typing-box">печатает...</div>
     <div class="input-wrap">
-        <label class="attach-btn">📎<input type="file" id="upload-img" accept="image/*" style="display:none"></label>
         <textarea id="main-input" rows="1" placeholder="Сообщение..."></textarea>
         <button class="send-trigger" id="action-btn">➤</button>
     </div>
 </div>
 
 <script>
-    // Изолируем конфигурацию и переводим на стабильный HiveMQ
+    // --- ИНИЦИАЛИЗАЦИЯ ЮЗЕРНЕЙМА ---
+    function setupUsername() {
+        let un = localStorage.getItem('tg18_username');
+        while (!un || !/^[a-z0-9_]{3,15}$/.test(un)) {
+            un = prompt("Придумай свой уникальный @username (только английские буквы, цифры и _, от 3 до 15 символов):");
+            if(un) un = un.toLowerCase().trim();
+        }
+        localStorage.setItem('tg18_username', un);
+        return un;
+    }
+
+    const MY_USERNAME = setupUsername();
+    document.getElementById('my-username').innerText = '@' + MY_USERNAME;
+
     const CONFIG = {
         broker: 'wss://broker.hivemq.com:8443/mqtt',
-        radarTopic: 'tg_v17_radar_core',
-        prefix: 'tg_v17_data/',
-        myId: localStorage.getItem('tg17_uid') || 'u_' + Math.random().toString(36).substr(2, 9),
-        nick: localStorage.getItem('tg17_nick') || 'User_' + Math.floor(Math.random()*99)
+        prefix: 'tg_v18/u/', // Базовый топик. Дальше идет /username/
     };
-    localStorage.setItem('tg17_uid', CONFIG.myId);
     
     const colors = ['#e17076', '#faa774', '#a695e7', '#7bc862', '#6ec9cb', '#65aadd', '#ee7aae'];
-    function getAvaColor(id) { return colors[id.charCodeAt(id.length-1) % colors.length]; }
-    
-    function updateMyUI() {
-        document.getElementById('ui-my-name').innerText = CONFIG.nick;
-        const ava = document.getElementById('ui-my-ava');
-        ava.innerText = CONFIG.nick.charAt(0).toUpperCase();
-        ava.style.background = getAvaColor(CONFIG.myId);
+    function getAvaColor(str) { 
+        let hash = 0; for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash);
+        return colors[Math.abs(hash) % colors.length]; 
     }
-    updateMyUI();
 
-    let client, activePartner = null, users = new Map();
-    let db = JSON.parse(localStorage.getItem('tg17_db')) || {};
-    let lastPing = Date.now();
+    let client, activePartner = null;
+    // Структура БД: db = { "alex": { unread: 0, msgs: [...] }, "ivan": { unread: 2, msgs: [...] } }
+    let db = JSON.parse(localStorage.getItem('tg18_db')) || {};
 
     function init() {
-        // Жесткая фиксация ClientID и Clean Session = false для сохранения сообщений сервером
+        // Подключаемся. clientId уникален для юзернейма. clean: false сохраняет сообщения, пока ты офлайн!
         client = mqtt.connect(CONFIG.broker, { 
-            clientId: 'v17_core_' + CONFIG.myId, 
+            clientId: 'v18_usr_' + MY_USERNAME, 
             clean: false, 
-            keepalive: 10,
+            keepalive: 15,
             reconnectPeriod: 1000 
         });
 
         client.on('connect', () => {
             updateStatus('в сети', 'var(--tick-blue)');
-            client.subscribe(CONFIG.radarTopic, { qos: 1 });
-            client.subscribe(CONFIG.prefix + CONFIG.myId + '/#', { qos: 1 });
-            
-            lastPing = Date.now();
+            // Слушаем ТОЛЬКО свой личный топик
+            client.subscribe(CONFIG.prefix + MY_USERNAME + '/#', { qos: 1 });
             resendPendingMessages();
         });
 
         client.on('offline', () => updateStatus('ожидание сети...', 'var(--text-muted)'));
-        client.on('reconnect', () => updateStatus('обновление...', 'var(--accent)'));
+        client.on('reconnect', () => updateStatus('соединение...', 'var(--accent)'));
 
         client.on('message', (topic, payload) => {
             const data = JSON.parse(payload.toString());
-            
-            // Если мы получили радар от себя же — значит соединение 100% живое
-            if (topic === CONFIG.radarTopic && data.id === CONFIG.myId) lastPing = Date.now();
-
-            if (topic === CONFIG.radarTopic) {
-                if (data.id !== CONFIG.myId) handleRadar(data);
-            } else {
-                handleIncoming(data);
-            }
+            handleIncoming(topic, data);
         });
+
+        renderContacts();
     }
 
     function updateStatus(text, color) {
@@ -168,210 +166,202 @@
         el.innerText = text; el.style.color = color;
     }
 
-    // --- СИСТЕМЫ ЖИВУЧЕСТИ ---
-    
-    // 1. Радар + Пинг-понг
-    setInterval(() => {
-        if (client && client.connected) {
-            client.publish(CONFIG.radarTopic, JSON.stringify({id: CONFIG.myId, nick: CONFIG.nick, t: Date.now()}), {qos: 0});
-        }
-    }, 2500);
-
-    // 2. Watchdog (Сторожевой пес) - убивает зависший сокет браузера
-    setInterval(() => {
-        if (Date.now() - lastPing > 15000 && client) {
-            updateStatus('переподключение...', 'var(--danger)');
-            client.end(true); // Жестко рвем мертвое соединение
-            setTimeout(init, 500); // Перезапускаем
-            lastPing = Date.now();
-        }
-    }, 5000);
-
-    // 3. Visibility API - мгновенно будит чат, когда открываешь вкладку/телефон
-    document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'visible') {
-            updateStatus('синхронизация...', 'var(--accent)');
-            if (client) {
-                client.reconnect();
-                resendPendingMessages();
-            }
-        }
-    });
-
-    // --- ЛОГИКА СООБЩЕНИЙ ---
-    function handleIncoming(data) {
-        const from = data.from;
+    // --- ОБРАБОТКА ВХОДЯЩИХ ---
+    function handleIncoming(topic, data) {
+        const fromUser = data.from;
 
         if (data.type === 'msg') {
-            // МГНОВЕННО шлем ответ: 1 галочка (доставлено на устройство)
-            client.publish(CONFIG.prefix + from + '/sys', JSON.stringify({type: 'ack_received', mId: data.mId, from: CONFIG.myId}), {qos: 1});
+            // Мгновенно подтверждаем доставку (1 галочка) на устройство отправителя
+            client.publish(CONFIG.prefix + fromUser + '/sys', JSON.stringify({type: 'ack_received', mId: data.mId, from: MY_USERNAME}), {qos: 1});
 
-            if (!db[from]) db[from] = [];
-            const exists = db[from].find(m => m.mId === data.mId);
+            ensureUserExists(fromUser);
+            const exists = db[fromUser].msgs.find(m => m.mId === data.mId);
             
-            if (activePartner === from) {
-                // Если чат открыт: 2 галочки (прочитано)
-                client.publish(CONFIG.prefix + from + '/sys', JSON.stringify({type: 'ack_read', mId: data.mId, from: CONFIG.myId}), {qos: 1});
+            if (activePartner === fromUser) {
+                // Если чат с ним открыт прямо сейчас — читаем сразу (2 галочки)
+                client.publish(CONFIG.prefix + fromUser + '/sys', JSON.stringify({type: 'ack_read', mId: data.mId, from: MY_USERNAME}), {qos: 1});
                 data.status = 'read';
             } else {
                 data.status = 'received';
             }
 
             if (!exists) {
-                db[from].push(data);
+                db[fromUser].msgs.push(data);
+                if (activePartner !== fromUser) db[fromUser].unread++;
                 save();
-                if (activePartner === from) { renderMsgs(); scroll(); }
-                else { let u = users.get(from); if (u) { u.unread = (u.unread || 0) + 1; renderUsers(); } }
+                renderContacts();
+                if (activePartner === fromUser) { renderMsgs(); scroll(); }
             }
         } 
         else if (data.type === 'ack_received') updateMsgStatus(data.from, data.mId, 'sent');
         else if (data.type === 'ack_read') updateMsgStatus(data.from, data.mId, 'read');
-        else if (data.type === 'typing' && activePartner === from) showTyping();
+        else if (data.type === 'typing' && activePartner === fromUser) showTyping();
     }
 
-    function updateMsgStatus(chatId, mId, newStatus) {
-        if (!db[chatId]) return;
-        const m = db[chatId].find(x => x.mId === mId);
+    function updateMsgStatus(chatUser, mId, newStatus) {
+        if (!db[chatUser]) return;
+        const m = db[chatUser].msgs.find(x => x.mId === mId);
         if (m) {
-            if (m.status === 'read') return; 
+            if (m.status === 'read') return; // Защита от понижения статуса
             m.status = newStatus;
             save();
-            if (activePartner === chatId) renderMsgs(); 
+            if (activePartner === chatUser) renderMsgs(); 
         }
     }
 
-    // Постоянная долбежка сервера, пока сообщение не уйдет
+    // --- ОТПРАВКА СООБЩЕНИЙ ---
+    function sendMsg() {
+        const input = document.getElementById('main-input');
+        const text = input.value.trim();
+        if (!text || !activePartner) return;
+
+        const pkg = { 
+            mId: 'm_' + Date.now(), type: 'msg', from: MY_USERNAME, to: activePartner, 
+            body: text, time: new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}), status: 'pending' 
+        };
+
+        db[activePartner].msgs.push(pkg);
+        save(); renderMsgs(); renderContacts(); scroll();
+
+        // Отправляем в ЛИЧНЫЙ топик получателя с гарантией доставки (QoS 1)
+        if (client && client.connected) {
+            client.publish(CONFIG.prefix + activePartner + '/msg', JSON.stringify(pkg), {qos: 1});
+        }
+
+        input.value = ''; input.style.height = 'auto';
+    }
+
     function resendPendingMessages() {
-        Object.keys(db).forEach(chatId => {
-            db[chatId].forEach(m => {
-                if (m.from === CONFIG.myId && m.status === 'pending') {
+        Object.keys(db).forEach(user => {
+            db[user].msgs.forEach(m => {
+                if (m.from === MY_USERNAME && m.status === 'pending') {
                     if (client && client.connected) {
-                        client.publish(CONFIG.prefix + chatId + '/msg', JSON.stringify(m), {qos: 1});
+                        client.publish(CONFIG.prefix + user + '/msg', JSON.stringify(m), {qos: 1});
                     }
                 }
             });
         });
     }
-    // Проталкиваем очередь каждые 3 секунды
+    // Авто-проталкивание зависших пакетов
     setInterval(resendPendingMessages, 3000);
 
-    function sendVibe(mType, body = null) {
-        const input = document.getElementById('main-input');
-        const text = body || input.value.trim();
-        if (!text || !activePartner) return;
-
-        const pkg = { mId: 'm_' + Date.now(), type: 'msg', from: CONFIG.myId, to: activePartner, body: text, mType: mType, time: new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}), status: 'pending' };
-
-        if (!db[activePartner]) db[activePartner] = [];
-        db[activePartner].push(pkg);
-        save(); renderMsgs(); scroll();
-
-        if (client && client.connected) {
-            client.publish(CONFIG.prefix + activePartner + '/msg', JSON.stringify(pkg), {qos: 1});
+    // --- ИНТЕРФЕЙС И ПОИСК ---
+    function ensureUserExists(username) {
+        if (!db[username]) {
+            db[username] = { unread: 0, msgs: [] };
+            save();
         }
-
-        if (!body) { input.value = ''; input.style.height = 'auto'; }
     }
 
-    // --- ИНТЕРФЕЙС ---
-    function handleRadar(u) {
-        users.set(u.id, { ...u, last: Date.now(), unread: users.get(u.id)?.unread || 0 });
-        renderUsers();
+    function searchUser() {
+        let q = document.getElementById('search-input').value.toLowerCase().trim();
+        q = q.replace('@', ''); // Убираем @ если пользователь ввел с ним
+        if (!q) return;
+        if (q === MY_USERNAME) return alert("Это твой собственный юзернейм!");
+        
+        ensureUserExists(q);
+        document.getElementById('search-input').value = '';
+        renderContacts();
+        openChat(q);
     }
 
-    function renderUsers() {
+    function renderContacts() {
         const container = document.getElementById('contact-list');
         container.innerHTML = '';
-        const sorted = Array.from(users.values()).sort((a,b) => b.last - a.last);
         
-        let onlineCount = 0;
-        sorted.forEach(u => {
-            if (Date.now() - u.last > 10000) return; 
-            onlineCount++;
-            const badge = u.unread > 0 ? `<div class="unread-dot">${u.unread}</div>` : '';
-            const bg = getAvaColor(u.id);
-            const initial = u.nick.charAt(0).toUpperCase();
+        const users = Object.keys(db).sort((a,b) => {
+            const lastA = db[a].msgs[db[a].msgs.length-1]?.mId || 0;
+            const lastB = db[b].msgs[db[b].msgs.length-1]?.mId || 0;
+            return lastB < lastA ? -1 : 1;
+        });
+
+        if (users.length === 0) {
+            container.innerHTML = '<div class="empty-state">Нет контактов.<br>Введите @username друга в поиск сверху, чтобы начать чат.</div>';
+            return;
+        }
+
+        users.forEach(u => {
+            const data = db[u];
+            const badge = data.unread > 0 ? `<div class="unread-dot">${data.unread}</div>` : '';
+            const bg = getAvaColor(u);
+            const initial = u.charAt(0).toUpperCase();
+            const lastMsgObj = data.msgs[data.msgs.length-1];
+            let lastText = lastMsgObj ? (lastMsgObj.from === MY_USERNAME ? 'Вы: ' : '') + lastMsgObj.body : 'Нет сообщений';
             
             container.innerHTML += `
-                <div class="user-card" onclick="openChat('${u.id}')">
+                <div class="user-card" onclick="openChat('${u}')">
                     <div class="avatar" style="background: ${bg}">${initial}</div>
                     <div class="u-info">
-                        <div class="u-info-top"><div class="u-name">${u.nick}</div>${badge}</div>
-                        <div class="u-status" style="color:var(--accent); font-size:13px">в сети</div>
+                        <div class="u-info-top"><div class="u-name">@${u}</div>${badge}</div>
+                        <div class="u-lastmsg">${lastText}</div>
                     </div>
                 </div>`;
         });
-        if (onlineCount === 0) container.innerHTML = '<div style="text-align: center; color: var(--text-muted); padding: 40px; font-size: 15px;">Радар ищет контакты...</div>';
     }
 
-    function openChat(id) {
-        activePartner = id;
-        const u = users.get(id);
-        if(u) u.unread = 0;
+    function openChat(username) {
+        activePartner = username;
+        db[username].unread = 0;
         
-        document.getElementById('p-name').innerText = u ? u.nick : 'User';
+        document.getElementById('p-name').innerText = '@' + username;
         const pAva = document.getElementById('p-ava');
-        pAva.innerText = u ? u.nick.charAt(0).toUpperCase() : 'U';
-        pAva.style.background = getAvaColor(id);
+        pAva.innerText = username.charAt(0).toUpperCase();
+        pAva.style.background = getAvaColor(username);
 
         document.getElementById('chat-window').classList.add('active');
         
-        if (db[id]) {
-            let changed = false;
-            db[id].forEach(m => {
-                if (m.from === id && m.status !== 'read') {
-                    client.publish(CONFIG.prefix + id + '/sys', JSON.stringify({type: 'ack_read', mId: m.mId, from: CONFIG.myId}), {qos: 1});
-                    m.status = 'read';
-                    changed = true;
-                }
-            });
-            if (changed) save();
-        }
-        renderUsers(); renderMsgs(); setTimeout(scroll, 50);
+        // Отправляем галочки "прочитано" для всех непрочитанных входящих
+        let changed = false;
+        db[username].msgs.forEach(m => {
+            if (m.from === username && m.status !== 'read') {
+                client.publish(CONFIG.prefix + username + '/sys', JSON.stringify({type: 'ack_read', mId: m.mId, from: MY_USERNAME}), {qos: 1});
+                m.status = 'read';
+                changed = true;
+            }
+        });
+        if (changed) save();
+        
+        renderContacts(); renderMsgs(); setTimeout(scroll, 50);
     }
 
     function renderMsgs() {
         const box = document.getElementById('messages');
         box.innerHTML = '';
-        (db[activePartner] || []).forEach(m => {
-            const mine = m.from === CONFIG.myId;
-            const content = m.mType === 'text' ? m.body : `<img src="${m.body}">`;
+        (db[activePartner]?.msgs || []).forEach(m => {
+            const mine = m.from === MY_USERNAME;
             
             let statusIcon = '';
             if (mine) {
-                if (m.status === 'pending') statusIcon = '<span class="status-icon st-pending">🕒</span>';
-                else if (m.status === 'sent') statusIcon = '<span class="status-icon st-sent">✓</span>';
-                else if (m.status === 'read') statusIcon = '<span class="status-icon st-read">✓✓</span>';
+                if (m.status === 'pending') statusIcon = '<span class="st-pending">🕒</span>';
+                else if (m.status === 'sent') statusIcon = '<span class="st-sent">✓</span>';
+                else if (m.status === 'read') statusIcon = '<span class="st-read">✓✓</span>';
             }
 
             box.innerHTML += `
                 <div class="msg-row">
                     <div class="msg ${mine?'mine':'other'}">
-                        ${content}
+                        ${m.body}
                         <span class="msg-meta">${m.time} ${statusIcon}</span>
                     </div>
                 </div>`;
         });
     }
 
-    function closeChat() { document.getElementById('chat-window').classList.remove('active'); activePartner = null; }
+    function closeChat() { document.getElementById('chat-window').classList.remove('active'); activePartner = null; renderContacts(); }
     function scroll() { const b = document.getElementById('messages'); b.scrollTop = b.scrollHeight; }
-    function save() { localStorage.setItem('tg17_db', JSON.stringify(db)); }
+    function save() { localStorage.setItem('tg18_db', JSON.stringify(db)); }
 
-    function editNick() {
-        const n = prompt("Ваше имя:", CONFIG.nick);
-        if (n && n.trim()) { CONFIG.nick = n.trim(); localStorage.setItem('tg17_nick', CONFIG.nick); updateMyUI(); }
-    }
-
+    // --- ДОП. ФУНКЦИИ ---
     const inp = document.getElementById('main-input');
     inp.addEventListener('input', () => {
         inp.style.height = 'auto'; inp.style.height = Math.min(inp.scrollHeight, 120) + 'px';
         if (activePartner && client && client.connected) {
-            client.publish(CONFIG.prefix + activePartner + '/sys', JSON.stringify({type:'typing', from:CONFIG.myId}), {qos: 0});
+            client.publish(CONFIG.prefix + activePartner + '/sys', JSON.stringify({type:'typing', from: MY_USERNAME}), {qos: 0});
         }
     });
 
-    document.getElementById('action-btn').onclick = () => sendVibe('text');
+    document.getElementById('action-btn').onclick = sendMsg;
+    document.getElementById('search-input').addEventListener('keypress', function(e) { if(e.key === 'Enter') searchUser(); });
 
     let typingT;
     function showTyping() {
@@ -379,19 +369,13 @@
         clearTimeout(typingT); typingT = setTimeout(() => b.classList.remove('show'), 2000);
     }
 
-    document.getElementById('upload-img').onchange = (e) => {
-        const reader = new FileReader();
-        reader.onload = (ev) => {
-            const img = new Image(); img.src = ev.target.result;
-            img.onload = () => {
-                const canvas = document.createElement('canvas'); const MAX = 600; let w = img.width, h = img.height;
-                if (w > h) { if(w > MAX){ h *= MAX/w; w = MAX; } } else { if(h > MAX){ w *= MAX/h; h = MAX; } }
-                canvas.width = w; canvas.height = h; canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-                sendVibe('img', canvas.toDataURL('image/jpeg', 0.6));
-            };
-        };
-        reader.readAsDataURL(e.target.files[0]);
-    };
+    // Служба пробуждения сокета (Visibility API)
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible' && client) {
+            updateStatus('синхронизация...', 'var(--accent)');
+            client.reconnect(); resendPendingMessages();
+        }
+    });
 
     init();
 </script>
