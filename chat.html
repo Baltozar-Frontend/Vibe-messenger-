@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Telegram V18 (Private)</title>
+    <title>Telegram V18.1 (Private)</title>
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
     <style>
         :root {
@@ -72,7 +72,7 @@
 <div id="app">
     <header>
         <div class="logo-area">
-            <h1>Telegram V18</h1>
+            <h1>Telegram V18.1</h1>
             <div class="my-status" id="sys-status">подключение...</div>
         </div>
         <div style="text-align: right;">
@@ -105,7 +105,6 @@
 </div>
 
 <script>
-    // --- ИНИЦИАЛИЗАЦИЯ ЮЗЕРНЕЙМА ---
     function setupUsername() {
         let un = localStorage.getItem('tg18_username');
         while (!un || !/^[a-z0-9_]{3,15}$/.test(un)) {
@@ -119,9 +118,11 @@
     const MY_USERNAME = setupUsername();
     document.getElementById('my-username').innerText = '@' + MY_USERNAME;
 
+    // Конфиг с правильным портом 8884
     const CONFIG = {
-        broker: 'wss://broker.hivemq.com:8443/mqtt',
-        prefix: 'tg_v18/u/', // Базовый топик. Дальше идет /username/
+        broker: 'wss://broker.hivemq.com:8884/mqtt',
+        backupBroker: 'wss://test.mosquitto.org:8081',
+        prefix: 'tg_v18/u/', 
     };
     
     const colors = ['#e17076', '#faa774', '#a695e7', '#7bc862', '#6ec9cb', '#65aadd', '#ee7aae'];
@@ -130,29 +131,40 @@
         return colors[Math.abs(hash) % colors.length]; 
     }
 
-    let client, activePartner = null;
-    // Структура БД: db = { "alex": { unread: 0, msgs: [...] }, "ivan": { unread: 2, msgs: [...] } }
+    let client, activePartner = null, connectionTimeout;
     let db = JSON.parse(localStorage.getItem('tg18_db')) || {};
 
-    function init() {
-        // Подключаемся. clientId уникален для юзернейма. clean: false сохраняет сообщения, пока ты офлайн!
-        client = mqtt.connect(CONFIG.broker, { 
-            clientId: 'v18_usr_' + MY_USERNAME, 
+    function init(useBackup = false) {
+        const brokerUrl = useBackup ? CONFIG.backupBroker : CONFIG.broker;
+        updateStatus(useBackup ? 'резервный сервер...' : 'подключение...', 'var(--accent)');
+
+        client = mqtt.connect(brokerUrl, { 
+            clientId: 'v18_usr_' + MY_USERNAME + '_' + Math.random().toString(16).substr(2,4), 
             clean: false, 
             keepalive: 15,
-            reconnectPeriod: 1000 
+            reconnectPeriod: 2000 
         });
 
+        // Fallback-таймер: если не подключится за 6 секунд, меняем сервер
+        if (!useBackup) {
+            connectionTimeout = setTimeout(() => {
+                if (!client.connected) {
+                    updateStatus('смена сервера...', 'var(--danger)');
+                    client.end(true);
+                    init(true); // Запускаем с резервным сервером
+                }
+            }, 6000);
+        }
+
         client.on('connect', () => {
+            clearTimeout(connectionTimeout);
             updateStatus('в сети', 'var(--tick-blue)');
-            // Слушаем ТОЛЬКО свой личный топик
             client.subscribe(CONFIG.prefix + MY_USERNAME + '/#', { qos: 1 });
             resendPendingMessages();
         });
 
         client.on('offline', () => updateStatus('ожидание сети...', 'var(--text-muted)'));
-        client.on('reconnect', () => updateStatus('соединение...', 'var(--accent)'));
-
+        
         client.on('message', (topic, payload) => {
             const data = JSON.parse(payload.toString());
             handleIncoming(topic, data);
@@ -166,19 +178,15 @@
         el.innerText = text; el.style.color = color;
     }
 
-    // --- ОБРАБОТКА ВХОДЯЩИХ ---
     function handleIncoming(topic, data) {
         const fromUser = data.from;
-
         if (data.type === 'msg') {
-            // Мгновенно подтверждаем доставку (1 галочка) на устройство отправителя
             client.publish(CONFIG.prefix + fromUser + '/sys', JSON.stringify({type: 'ack_received', mId: data.mId, from: MY_USERNAME}), {qos: 1});
 
             ensureUserExists(fromUser);
             const exists = db[fromUser].msgs.find(m => m.mId === data.mId);
             
             if (activePartner === fromUser) {
-                // Если чат с ним открыт прямо сейчас — читаем сразу (2 галочки)
                 client.publish(CONFIG.prefix + fromUser + '/sys', JSON.stringify({type: 'ack_read', mId: data.mId, from: MY_USERNAME}), {qos: 1});
                 data.status = 'read';
             } else {
@@ -188,8 +196,7 @@
             if (!exists) {
                 db[fromUser].msgs.push(data);
                 if (activePartner !== fromUser) db[fromUser].unread++;
-                save();
-                renderContacts();
+                save(); renderContacts();
                 if (activePartner === fromUser) { renderMsgs(); scroll(); }
             }
         } 
@@ -202,14 +209,12 @@
         if (!db[chatUser]) return;
         const m = db[chatUser].msgs.find(x => x.mId === mId);
         if (m) {
-            if (m.status === 'read') return; // Защита от понижения статуса
+            if (m.status === 'read') return; 
             m.status = newStatus;
-            save();
-            if (activePartner === chatUser) renderMsgs(); 
+            save(); if (activePartner === chatUser) renderMsgs(); 
         }
     }
 
-    // --- ОТПРАВКА СООБЩЕНИЙ ---
     function sendMsg() {
         const input = document.getElementById('main-input');
         const text = input.value.trim();
@@ -223,11 +228,9 @@
         db[activePartner].msgs.push(pkg);
         save(); renderMsgs(); renderContacts(); scroll();
 
-        // Отправляем в ЛИЧНЫЙ топик получателя с гарантией доставки (QoS 1)
         if (client && client.connected) {
             client.publish(CONFIG.prefix + activePartner + '/msg', JSON.stringify(pkg), {qos: 1});
         }
-
         input.value = ''; input.style.height = 'auto';
     }
 
@@ -235,40 +238,30 @@
         Object.keys(db).forEach(user => {
             db[user].msgs.forEach(m => {
                 if (m.from === MY_USERNAME && m.status === 'pending') {
-                    if (client && client.connected) {
-                        client.publish(CONFIG.prefix + user + '/msg', JSON.stringify(m), {qos: 1});
-                    }
+                    if (client && client.connected) client.publish(CONFIG.prefix + user + '/msg', JSON.stringify(m), {qos: 1});
                 }
             });
         });
     }
-    // Авто-проталкивание зависших пакетов
     setInterval(resendPendingMessages, 3000);
 
-    // --- ИНТЕРФЕЙС И ПОИСК ---
     function ensureUserExists(username) {
-        if (!db[username]) {
-            db[username] = { unread: 0, msgs: [] };
-            save();
-        }
+        if (!db[username]) { db[username] = { unread: 0, msgs: [] }; save(); }
     }
 
     function searchUser() {
-        let q = document.getElementById('search-input').value.toLowerCase().trim();
-        q = q.replace('@', ''); // Убираем @ если пользователь ввел с ним
+        let q = document.getElementById('search-input').value.toLowerCase().trim().replace('@', '');
         if (!q) return;
-        if (q === MY_USERNAME) return alert("Это твой собственный юзернейм!");
+        if (q === MY_USERNAME) return alert("Это твой юзернейм!");
         
         ensureUserExists(q);
         document.getElementById('search-input').value = '';
-        renderContacts();
-        openChat(q);
+        renderContacts(); openChat(q);
     }
 
     function renderContacts() {
         const container = document.getElementById('contact-list');
         container.innerHTML = '';
-        
         const users = Object.keys(db).sort((a,b) => {
             const lastA = db[a].msgs[db[a].msgs.length-1]?.mId || 0;
             const lastB = db[b].msgs[db[b].msgs.length-1]?.mId || 0;
@@ -276,7 +269,7 @@
         });
 
         if (users.length === 0) {
-            container.innerHTML = '<div class="empty-state">Нет контактов.<br>Введите @username друга в поиск сверху, чтобы начать чат.</div>';
+            container.innerHTML = '<div class="empty-state">Нет контактов.<br>Введите @username друга в поиск.</div>';
             return;
         }
 
@@ -305,18 +298,15 @@
         
         document.getElementById('p-name').innerText = '@' + username;
         const pAva = document.getElementById('p-ava');
-        pAva.innerText = username.charAt(0).toUpperCase();
-        pAva.style.background = getAvaColor(username);
+        pAva.innerText = username.charAt(0).toUpperCase(); pAva.style.background = getAvaColor(username);
 
         document.getElementById('chat-window').classList.add('active');
         
-        // Отправляем галочки "прочитано" для всех непрочитанных входящих
         let changed = false;
         db[username].msgs.forEach(m => {
             if (m.from === username && m.status !== 'read') {
                 client.publish(CONFIG.prefix + username + '/sys', JSON.stringify({type: 'ack_read', mId: m.mId, from: MY_USERNAME}), {qos: 1});
-                m.status = 'read';
-                changed = true;
+                m.status = 'read'; changed = true;
             }
         });
         if (changed) save();
@@ -329,14 +319,12 @@
         box.innerHTML = '';
         (db[activePartner]?.msgs || []).forEach(m => {
             const mine = m.from === MY_USERNAME;
-            
             let statusIcon = '';
             if (mine) {
                 if (m.status === 'pending') statusIcon = '<span class="st-pending">🕒</span>';
                 else if (m.status === 'sent') statusIcon = '<span class="st-sent">✓</span>';
                 else if (m.status === 'read') statusIcon = '<span class="st-read">✓✓</span>';
             }
-
             box.innerHTML += `
                 <div class="msg-row">
                     <div class="msg ${mine?'mine':'other'}">
@@ -351,7 +339,6 @@
     function scroll() { const b = document.getElementById('messages'); b.scrollTop = b.scrollHeight; }
     function save() { localStorage.setItem('tg18_db', JSON.stringify(db)); }
 
-    // --- ДОП. ФУНКЦИИ ---
     const inp = document.getElementById('main-input');
     inp.addEventListener('input', () => {
         inp.style.height = 'auto'; inp.style.height = Math.min(inp.scrollHeight, 120) + 'px';
@@ -369,9 +356,8 @@
         clearTimeout(typingT); typingT = setTimeout(() => b.classList.remove('show'), 2000);
     }
 
-    // Служба пробуждения сокета (Visibility API)
     document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'visible' && client) {
+        if (document.visibilityState === 'visible' && client && !client.connected) {
             updateStatus('синхронизация...', 'var(--accent)');
             client.reconnect(); resendPendingMessages();
         }
