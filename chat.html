@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Telegram V18.1 (Private)</title>
+    <title>Telegram V18.2 (EMQX)</title>
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
     <style>
         :root {
@@ -17,7 +17,6 @@
 
         ::-webkit-scrollbar { width: 4px; } ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
 
-        /* HEADER & SEARCH */
         header { padding: 40px 16px 12px; background: var(--header-bg); display: flex; justify-content: space-between; align-items: center; z-index: 10; }
         .logo-area h1 { font-size: 20px; font-weight: 600; }
         .my-status { font-size: 13px; color: var(--accent); margin-top: 2px; }
@@ -26,7 +25,6 @@
         .search-bar input { flex: 1; background: var(--bg); border: none; color: var(--text-main); padding: 10px 16px; border-radius: 20px; outline: none; font-size: 15px; }
         .search-bar button { background: var(--accent); color: white; border: none; padding: 0 16px; border-radius: 20px; font-weight: 500; cursor: pointer; }
 
-        /* CONTACTS */
         #contact-list { flex: 1; overflow-y: auto; display: flex; flex-direction: column; }
         .user-card { padding: 10px 16px; display: flex; align-items: center; gap: 12px; cursor: pointer; transition: 0.1s; }
         .user-card:active { background: var(--header-bg); }
@@ -37,7 +35,6 @@
         .u-lastmsg { font-size: 14px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px; }
         .unread-dot { background: var(--text-muted); color: var(--bg); min-width: 22px; height: 22px; border-radius: 11px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; padding: 0 6px; }
 
-        /* CHAT WINDOW */
         #chat-window { position: fixed; inset: 0; background: var(--bg); z-index: 100; display: none; flex-direction: column; transform: translateX(100%); transition: transform 0.2s ease-out; }
         #chat-window.active { display: flex; transform: translateX(0); }
         .chat-head { padding: 40px 16px 10px; background: var(--header-bg); display: flex; align-items: center; gap: 12px; box-shadow: 0 1px 2px rgba(0,0,0,0.2); }
@@ -53,11 +50,9 @@
         .msg.other { background: var(--msg-other); border-bottom-left-radius: 0; }
         
         .msg-meta { float: right; margin: 6px 0 -4px 10px; font-size: 11px; color: rgba(255,255,255,0.5); display: flex; align-items: center; gap: 4px; }
-        .st-pending { color: rgba(255,255,255,0.3); } 
         .st-sent { color: var(--tick-gray); font-weight: bold; } 
         .st-read { color: var(--tick-blue); font-weight: bold; } 
 
-        /* INPUT */
         .typing-label { font-size: 13px; color: var(--accent); padding: 4px 16px; height: 24px; opacity: 0; transition: 0.2s; position: absolute; bottom: 65px; left: 0; background: var(--bg); width: 100%; }
         .typing-label.show { opacity: 1; }
         .input-wrap { padding: 8px 12px 24px; background: var(--header-bg); display: flex; align-items: flex-end; gap: 10px; position: relative; z-index: 2; border-top: 1px solid var(--divider); }
@@ -72,11 +67,11 @@
 <div id="app">
     <header>
         <div class="logo-area">
-            <h1>Telegram V18.1</h1>
+            <h1>VIBE Chat</h1>
             <div class="my-status" id="sys-status">подключение...</div>
         </div>
         <div style="text-align: right;">
-            <div style="font-size: 12px; color: var(--text-muted);">твой юзернейм</div>
+            <div style="font-size: 12px; color: var(--text-muted);">твой ID</div>
             <b id="my-username" style="color: var(--accent);">@user</b>
         </div>
     </header>
@@ -93,7 +88,7 @@
         <div class="avatar" id="p-ava" style="width: 36px; height: 36px; font-size: 14px;">P</div>
         <div class="partner-info">
             <b id="p-name">@username</b>
-            <span id="p-status">закрытый чат</span>
+            <span id="p-status" style="color: var(--tick-blue);">закрытый канал</span>
         </div>
     </div>
     <div id="messages"></div>
@@ -108,7 +103,7 @@
     function setupUsername() {
         let un = localStorage.getItem('tg18_username');
         while (!un || !/^[a-z0-9_]{3,15}$/.test(un)) {
-            un = prompt("Придумай свой уникальный @username (только английские буквы, цифры и _, от 3 до 15 символов):");
+            un = prompt("Придумай свой логин (только англ. буквы и цифры, без пробелов):");
             if(un) un = un.toLowerCase().trim();
         }
         localStorage.setItem('tg18_username', un);
@@ -118,11 +113,10 @@
     const MY_USERNAME = setupUsername();
     document.getElementById('my-username').innerText = '@' + MY_USERNAME;
 
-    // Конфиг с правильным портом 8884
+    // Перешли на супер-стабильный сервер EMQX
     const CONFIG = {
-        broker: 'wss://broker.hivemq.com:8884/mqtt',
-        backupBroker: 'wss://test.mosquitto.org:8081',
-        prefix: 'tg_v18/u/', 
+        broker: 'wss://broker.emqx.io:8084/mqtt',
+        prefix: 'vibe_app/user/', 
     };
     
     const colors = ['#e17076', '#faa774', '#a695e7', '#7bc862', '#6ec9cb', '#65aadd', '#ee7aae'];
@@ -131,43 +125,34 @@
         return colors[Math.abs(hash) % colors.length]; 
     }
 
-    let client, activePartner = null, connectionTimeout;
+    let client, activePartner = null;
     let db = JSON.parse(localStorage.getItem('tg18_db')) || {};
 
-    function init(useBackup = false) {
-        const brokerUrl = useBackup ? CONFIG.backupBroker : CONFIG.broker;
-        updateStatus(useBackup ? 'резервный сервер...' : 'подключение...', 'var(--accent)');
+    function init() {
+        updateStatus('соединение с EMQX...', 'var(--accent)');
 
-        client = mqtt.connect(brokerUrl, { 
-            clientId: 'v18_usr_' + MY_USERNAME + '_' + Math.random().toString(16).substr(2,4), 
-            clean: false, 
-            keepalive: 15,
+        // clean: true решает проблему зависания сессий на публичных серверах
+        client = mqtt.connect(CONFIG.broker, { 
+            clientId: 'vibe_' + MY_USERNAME + '_' + Math.random().toString(16).substr(2,8), 
+            clean: true, 
+            keepalive: 30,
             reconnectPeriod: 2000 
         });
 
-        // Fallback-таймер: если не подключится за 6 секунд, меняем сервер
-        if (!useBackup) {
-            connectionTimeout = setTimeout(() => {
-                if (!client.connected) {
-                    updateStatus('смена сервера...', 'var(--danger)');
-                    client.end(true);
-                    init(true); // Запускаем с резервным сервером
-                }
-            }, 6000);
-        }
-
         client.on('connect', () => {
-            clearTimeout(connectionTimeout);
             updateStatus('в сети', 'var(--tick-blue)');
-            client.subscribe(CONFIG.prefix + MY_USERNAME + '/#', { qos: 1 });
-            resendPendingMessages();
+            // Слушаем свой топик
+            client.subscribe(CONFIG.prefix + MY_USERNAME + '/#', { qos: 0 });
         });
 
         client.on('offline', () => updateStatus('ожидание сети...', 'var(--text-muted)'));
+        client.on('error', (err) => console.error('MQTT Error:', err));
         
         client.on('message', (topic, payload) => {
-            const data = JSON.parse(payload.toString());
-            handleIncoming(topic, data);
+            try {
+                const data = JSON.parse(payload.toString());
+                handleIncoming(topic, data);
+            } catch(e) {}
         });
 
         renderContacts();
@@ -180,14 +165,17 @@
 
     function handleIncoming(topic, data) {
         const fromUser = data.from;
+
         if (data.type === 'msg') {
-            client.publish(CONFIG.prefix + fromUser + '/sys', JSON.stringify({type: 'ack_received', mId: data.mId, from: MY_USERNAME}), {qos: 1});
+            // Мгновенно шлем ответ "доставлено"
+            client.publish(CONFIG.prefix + fromUser + '/sys', JSON.stringify({type: 'ack_received', mId: data.mId, from: MY_USERNAME}), {qos: 0});
 
             ensureUserExists(fromUser);
             const exists = db[fromUser].msgs.find(m => m.mId === data.mId);
             
             if (activePartner === fromUser) {
-                client.publish(CONFIG.prefix + fromUser + '/sys', JSON.stringify({type: 'ack_read', mId: data.mId, from: MY_USERNAME}), {qos: 1});
+                // Если чат открыт - шлем ответ "прочитано"
+                client.publish(CONFIG.prefix + fromUser + '/sys', JSON.stringify({type: 'ack_read', mId: data.mId, from: MY_USERNAME}), {qos: 0});
                 data.status = 'read';
             } else {
                 data.status = 'received';
@@ -222,28 +210,19 @@
 
         const pkg = { 
             mId: 'm_' + Date.now(), type: 'msg', from: MY_USERNAME, to: activePartner, 
-            body: text, time: new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}), status: 'pending' 
+            body: text, time: new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}), status: 'sent' 
         };
 
         db[activePartner].msgs.push(pkg);
         save(); renderMsgs(); renderContacts(); scroll();
 
+        // Отправка (qos: 0 гарантирует быструю доставку без ожидания подтверждения сервером)
         if (client && client.connected) {
-            client.publish(CONFIG.prefix + activePartner + '/msg', JSON.stringify(pkg), {qos: 1});
+            client.publish(CONFIG.prefix + activePartner + '/msg', JSON.stringify(pkg), {qos: 0});
         }
+
         input.value = ''; input.style.height = 'auto';
     }
-
-    function resendPendingMessages() {
-        Object.keys(db).forEach(user => {
-            db[user].msgs.forEach(m => {
-                if (m.from === MY_USERNAME && m.status === 'pending') {
-                    if (client && client.connected) client.publish(CONFIG.prefix + user + '/msg', JSON.stringify(m), {qos: 1});
-                }
-            });
-        });
-    }
-    setInterval(resendPendingMessages, 3000);
 
     function ensureUserExists(username) {
         if (!db[username]) { db[username] = { unread: 0, msgs: [] }; save(); }
@@ -305,7 +284,9 @@
         let changed = false;
         db[username].msgs.forEach(m => {
             if (m.from === username && m.status !== 'read') {
-                client.publish(CONFIG.prefix + username + '/sys', JSON.stringify({type: 'ack_read', mId: m.mId, from: MY_USERNAME}), {qos: 1});
+                if(client && client.connected) {
+                    client.publish(CONFIG.prefix + username + '/sys', JSON.stringify({type: 'ack_read', mId: m.mId, from: MY_USERNAME}), {qos: 0});
+                }
                 m.status = 'read'; changed = true;
             }
         });
@@ -321,8 +302,7 @@
             const mine = m.from === MY_USERNAME;
             let statusIcon = '';
             if (mine) {
-                if (m.status === 'pending') statusIcon = '<span class="st-pending">🕒</span>';
-                else if (m.status === 'sent') statusIcon = '<span class="st-sent">✓</span>';
+                if (m.status === 'sent') statusIcon = '<span class="st-sent">✓</span>';
                 else if (m.status === 'read') statusIcon = '<span class="st-read">✓✓</span>';
             }
             box.innerHTML += `
@@ -358,8 +338,8 @@
 
     document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible' && client && !client.connected) {
-            updateStatus('синхронизация...', 'var(--accent)');
-            client.reconnect(); resendPendingMessages();
+            updateStatus('реконнект...', 'var(--accent)');
+            client.reconnect();
         }
     });
 
